@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Flattened logic to ensure visual editor settings map correctly.",
+      description: "Stable input logic with individual unit overrides.",
       preview: true
     });
   }
@@ -105,15 +105,24 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
-    static getStubConfig() { return { entity: "", show_header: true, title_size: 1, font_size: 1.2 }; }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
-    setConfig(config) { this._config = config; this._render(); }
-    set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
+    setConfig(config) {
+      this._config = config;
+      if (this._form) {
+        this._form.data = this._config;
+      }
+      this._render();
+    }
+    
+    set hass(hass) { 
+      this._hass = hass; 
+      if (this._form) this._form.hass = hass; 
+    }
 
     _render() {
-      if (this._rendered) { if (this._form) this._form.data = this._config; return; }
+      if (this._rendered) return; // Stop re-drawing the whole form on every keystroke
       
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
@@ -175,16 +184,17 @@
         const rawData = ev.detail.value;
         const flattened = { ...rawData };
 
-        // RECURSIVE FLATTEN: Check all keys for nested objects and move them to root
+        // Flatten logic
         Object.keys(rawData).forEach(key => {
           if (typeof rawData[key] === 'object' && rawData[key] !== null && !Array.isArray(rawData[key])) {
             Object.assign(flattened, rawData[key]);
-            delete flattened[key]; // Remove the nested parent key
+            delete flattened[key];
           }
         });
 
         const mergedConfig = { ...this._config, ...flattened, type: "custom:long-form-countdown-card" };
         
+        // Dispatch the change
         this.dispatchEvent(new CustomEvent("config-changed", { 
           detail: { config: mergedConfig }, 
           bubbles: true, 
