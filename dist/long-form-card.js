@@ -9,9 +9,9 @@
       if (!config.entity) throw new Error("Please define an entity");
       this.config = {
         font_size: 1.2,
-        n_color: 'var(--primary-text-color)',
-        l_color: 'var(--secondary-text-color)',
-        sep_color: 'var(--primary-text-color)',
+        n_color: 'inherit',
+        l_color: 'inherit',
+        sep_color: 'inherit',
         ...config
       };
     }
@@ -37,7 +37,7 @@
 
       const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
 
-      if (!this.shadowRoot.innerHTML || this._needsFullRender(stateObj)) {
+      if (!this.shadowRoot.innerHTML || this._lastEntity !== this.config.entity) {
         this._fullRender(stateObj, formattedDisplay, isFinished);
       } else {
         const timerEl = this.shadowRoot.querySelector('.timer');
@@ -47,65 +47,7 @@
           card.style.animation = (isFinished && this.config.flash_finished) ? 'blink 1s linear infinite' : 'none';
         }
       }
-      this._lastState = stateObj.state;
-    }
-
-    _needsFullRender(stateObj) {
-      return this._lastEntity !== this.config.entity || this._lastIcon !== (this.config.icon || stateObj.attributes.icon);
-    }
-
-    _fullRender(stateObj, formattedDisplay, isFinished) {
       this._lastEntity = this.config.entity;
-      this._lastIcon = this.config.icon || stateObj.attributes.icon;
-
-      this.shadowRoot.innerHTML = `
-        <style>
-          @keyframes blink { 50% { opacity: 0; } }
-          :host {
-            --timer-n-color: ${this.config.n_color};
-            --timer-l-color: ${this.config.l_color};
-            --timer-s-color: ${this.config.sep_color};
-          }
-          ha-card { 
-            padding: 16px; 
-            background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
-            border-radius: var(--ha-card-border-radius, 12px);
-          }
-          .header { display: flex; align-items: center; margin-bottom: 8px; }
-          .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
-          .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'} !important; font-weight: 500; }
-          
-          .timer { 
-            font-size: ${this.config.font_size}rem; 
-            line-height: 1.6; 
-            font-weight: 500;
-          }
-
-          /* Targeted Styling to force HEX colors */
-          .timer span { display: inline-block; }
-          .val { font-weight: 700; margin-right: 2px; color: var(--timer-n-color) !important; }
-          .lbl { font-weight: 400; margin-right: 4px; color: var(--timer-l-color) !important; }
-          .sep { margin-right: 6px; color: var(--timer-s-color) !important; }
-          
-          /* Overrides with higher specificity */
-          ${this._generateOverrideStyles()}
-        </style>
-        <ha-card>
-          <div class="header">
-            <ha-icon class="icon" icon="${this._lastIcon || 'mdi:clock-outline'}"></ha-icon>
-            <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
-          </div>
-          <div class="timer">${formattedDisplay}</div>
-        </ha-card>
-      `;
-    }
-
-    _generateOverrideStyles() {
-      const units = ['y', 'm', 'd', 'h', 'min', 's'];
-      return units.map(u => `
-        .${u}-v { color: ${this.config[u + '_n_color'] || 'var(--timer-n-color)'} !important; }
-        .${u}-l { color: ${this.config[u + '_l_color'] || 'var(--timer-l-color)'} !important; }
-      `).join('');
     }
 
     _colorizeUnits(str) {
@@ -114,22 +56,60 @@
         { key: 'd', regex: /days?|d/i }, { key: 'h', regex: /hours?|h/i },
         { key: 'min', regex: /minutes?|min/i }, { key: 's', regex: /seconds?|s/i }
       ];
+      
       let output = str;
       units.forEach(u => {
-        // Regex now captures the colon or comma explicitly
         const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b(\\s*[:]?\\s*)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          return `<span class="${u.key}-v val">${p1}</span><span class="${u.key}-l lbl">${p2}</span><span class="sep">${p3 || ''}</span>`;
+          // Bypassing CSS classes and using INLINE STYLES for total control
+          const numColor = this.config[u.key + '_n_color'] || this.config.n_color || 'inherit';
+          const wordColor = this.config[u.key + '_l_color'] || this.config.l_color || 'inherit';
+          const sepColor = this.config.sep_color || 'inherit';
+
+          return `
+            <span style="color: ${numColor} !important; font-weight: 700; margin-right: 2px;">${p1}</span>
+            <span style="color: ${wordColor} !important; font-weight: 400; margin-right: 4px;">${p2}</span>
+            <span style="color: ${sepColor} !important; margin-right: 6px;">${p3 || ''}</span>
+          `;
         });
       });
       return output;
+    }
+
+    _fullRender(stateObj, formattedDisplay, isFinished) {
+      const icon = this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline';
+      this.shadowRoot.innerHTML = `
+        <style>
+          @keyframes blink { 50% { opacity: 0; } }
+          ha-card { 
+            padding: 16px; 
+            background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
+            border-radius: var(--ha-card-border-radius, 12px);
+          }
+          .header { display: flex; align-items: center; margin-bottom: 8px; }
+          .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
+          .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'} !important; font-weight: 500; }
+          .timer { 
+            font-size: ${this.config.font_size}rem; 
+            line-height: 1.6; 
+            font-weight: 500;
+          }
+        </style>
+        <ha-card>
+          <div class="header">
+            <ha-icon class="icon" icon="${icon}"></ha-icon>
+            <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
+          </div>
+          <div class="timer">${formattedDisplay}</div>
+        </ha-card>
+      `;
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
     static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
   }
 
-  // --- EDITOR REMAINS THE SAME (PREVIOUS VERSION WORKING) ---
+  // --- EDITOR ---
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) { this._config = config; }
     set hass(hass) { this._hass = hass; this._render(); }
@@ -142,7 +122,7 @@
         { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
         {
           type: "grid", name: "", schema: [
-            { name: "bg_color", label: "Background Color", selector: { text: {} } },
+            { name: "bg_color", label: "Background", selector: { text: {} } },
             { name: "title_color", label: "Title & Icon Color", selector: { text: {} } },
             { name: "font_size", label: "Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
           ],
@@ -191,4 +171,12 @@
 
   customElements.define("long-form-countdown-card", LongFormCountdownCard);
   customElements.define("long-form-countdown-editor", LongFormCountdownEditor);
+
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "long-form-countdown-card",
+    name: "Long Form Countdown Card",
+    description: "Multi-color countdown with theme-bypass logic.",
+    preview: true
+  });
 })();
