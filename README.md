@@ -70,3 +70,22 @@ timer_settings:
 global_colors:
   n_color: "#ff9800"
   l_color: "#bdbdbd"
+```
+
+###Example 2: The "Rainbow Overrides"
+Perfect for high-visibility cards where you want different colors for different time units.
+
+```yaml
+type: custom:long-form-countdown-card
+entity: sensor.vacation_countdown
+header_settings:
+  title_color: "#00bcd4"
+  icon_color: "#00bcd4"
+unit_overrides:
+  d_n_color: "#4caf50" # Green Days
+  d_l_color: "#81c784"
+  h_n_color: "#2196f3" # Blue Hours
+  h_l_color: "#64b5f6"
+  min_n_color: "#ffeb3b" # Yellow Minutes
+  min_l_color: "#fff176"
+```
