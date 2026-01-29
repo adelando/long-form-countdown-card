@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Non-flickering header with stable input focus.",
+      description: "Supports elapsed states and custom finished modes.",
       preview: true
     });
   }
@@ -36,7 +36,6 @@
         this._firstRender(stateObj);
         this._initialized = true;
       }
-
       this._updateTimer(stateObj);
     }
 
@@ -44,8 +43,6 @@
       const showHeader = this._getConf('show_header', 'header_settings') !== false;
       const titleSize = this._getConf('title_size', 'header_settings') || 1;
       const icon = this._getConf('icon', 'header_settings') || stateObj.attributes.icon || 'mdi:clock-outline';
-      const iconColor = this._getConf('icon_color', 'header_settings') || 'inherit';
-      const titleColor = this._getConf('title_color', 'header_settings') || 'inherit';
       const bgColor = this._getConf('bg_color', 'timer_settings') || 'var(--ha-card-background)';
 
       this.shadowRoot.innerHTML = `
@@ -55,13 +52,14 @@
             padding: 16px; 
             background: ${bgColor} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
+            transition: all 0.3s ease;
           }
           .header { display: ${showHeader ? 'flex' : 'none'}; align-items: center; margin-bottom: 8px; }
-          .icon { margin-right: 12px; color: ${iconColor} !important; --mdc-icon-size: ${24 * titleSize}px; }
-          .name { font-size: ${0.9 * titleSize}rem; color: ${titleColor} !important; font-weight: 500; }
+          .icon { margin-right: 12px; color: ${this._getConf('icon_color', 'header_settings') || 'inherit'} !important; --mdc-icon-size: ${24 * titleSize}px; }
+          .name { font-size: ${0.9 * titleSize}rem; color: ${this._getConf('title_color', 'header_settings') || 'inherit'} !important; font-weight: 500; }
           .timer { font-size: ${this._getConf('font_size', 'timer_settings') || 1.2}rem; line-height: 1.6; font-weight: 500; }
-          .sep { margin-right: 8px; color: ${this._getConf('sep_color', 'global_colors') || 'inherit'} !important; }
-          .finished { animation: blink 1s linear infinite; }
+          .sep { margin-right: 4px; color: ${this._getConf('sep_color', 'global_colors') || 'inherit'} !important; }
+          .finished-flash { animation: blink 1s linear infinite !important; }
         </style>
         <ha-card id="card-container">
           <div class="header">
@@ -78,44 +76,61 @@
       const cardEl = this.shadowRoot.getElementById('card-container');
       if (!timerEl) return;
 
-      const isFinished = stateObj.attributes.is_finished || false;
-      let displayStr = isFinished ? (this._getConf('finished_text', 'timer_settings') || "Finished") : stateObj.state;
+      const isFinished = stateObj.attributes.is_finished || stateObj.state.toLowerCase().includes('elapsed');
+      const mode = this._getConf('finished_mode', 'timer_settings') || 'show_elapsed';
+      
+      let displayStr = stateObj.state;
 
-      if (!isFinished) {
-        if (this._getConf('short_form', 'timer_settings')) {
+      // Logic for post-countdown display
+      if (isFinished) {
+        if (mode === 'show_text') {
+          displayStr = this._getConf('finished_text', 'timer_settings') || "Finished";
+        }
+        // If mode is 'show_elapsed', we just leave displayStr as stateObj.state
+        
+        if (this._getConf('flash_finished', 'timer_settings')) {
+          cardEl.classList.add('finished-flash');
+        } else {
+          cardEl.classList.remove('finished-flash');
+        }
+      } else {
+        cardEl.classList.remove('finished-flash');
+      }
+
+      // Formatting
+      if (this._getConf('short_form', 'timer_settings')) {
           displayStr = displayStr
             .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
             .replace(/\bdays?\b/gi, 'd').replace(/\bhours?\b/gi, 'h')
             .replace(/\bminutes?\b/gi, 'min').replace(/\bseconds?\b/gi, 's');
-        }
-        if (this._getConf('hide_seconds', 'timer_settings')) {
-          displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
-        }
-        timerEl.innerHTML = this._colorizeUnits(displayStr);
-        cardEl.classList.remove('finished');
-      } else {
-        timerEl.innerText = displayStr;
-        if (this._getConf('flash_finished', 'timer_settings')) cardEl.classList.add('finished');
       }
+      if (this._getConf('hide_seconds', 'timer_settings')) {
+          displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
+      }
+
+      timerEl.innerHTML = this._colorizeUnits(displayStr);
     }
 
     _colorizeUnits(str) {
-      const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
-      let output = str;
-      const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
+      // Catch "elapsed" specifically to style it as a label
       const lGlob = this._getConf('l_color', 'global_colors') || 'var(--secondary-text-color)';
+      const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
+      const sepClr = this._getConf('sep_color', 'global_colors') || nGlob;
 
+      let processed = str.replace(/\belapsed\b/gi, `<span style="color: ${lGlob} !important; font-weight: 400; margin-right: 8px;">elapsed</span>`);
+
+      const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
       units.forEach(u => {
         const regex = new RegExp(`(\\d+)\\s*(${u.r.source})\\b\\s*([,:]?)`, 'gi');
-        output = output.replace(regex, (match, p1, p2, p3) => {
+        processed = processed.replace(regex, (match, p1, p2, p3) => {
           const nColor = this._getConf(`${u.k}_n_color`, 'unit_overrides') || nGlob;
           const lColor = this._getConf(`${u.k}_l_color`, 'unit_overrides') || lGlob;
           return `<span style="color: ${nColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
                  `<span style="color: ${lColor} !important; font-weight: 400;">${p2}</span>` +
-                 `<span class="sep" style="color:${this._getConf('sep_color', 'global_colors') || nGlob}">${p3 || ''}</span>`;
+                 `<span class="sep" style="color: ${sepClr}">${p3 || ''}</span>`;
         });
       });
-      return output;
+      return processed;
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
@@ -123,7 +138,7 @@
       return { 
         entity: "", 
         header_settings: { show_header: true, title_size: 1 },
-        timer_settings: { font_size: 1.2 }
+        timer_settings: { font_size: 1.2, finished_mode: "show_elapsed" }
       }; 
     }
   }
@@ -157,6 +172,10 @@
         },
         {
           name: "timer_settings", label: "Timer Settings", type: "expandable", schema: [
+            { name: "finished_mode", label: "When Finished Show...", selector: { select: { options: [
+              { value: "show_elapsed", label: "Elapsed Time" },
+              { value: "show_text", label: "Finished Text Only" }
+            ] } } },
             { type: "grid", name: "", schema: [
               { name: "bg_color", label: "Background Hex", selector: { text: {} } },
               { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
@@ -208,7 +227,6 @@
           composed: true 
         }));
       });
-
       this.querySelector("div").appendChild(this._form);
     }
   }
