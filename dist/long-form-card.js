@@ -64,7 +64,7 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
-    static getStubConfig() { return { entity: "", font_size: 1.2 }; }
+    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
@@ -95,7 +95,7 @@
           ],
         },
         {
-          name: "Colors",
+          name: "Global Colors",
           type: "expandable",
           schema: [
             { name: "n_color", label: "Global Number Color", selector: { text: {} } },
@@ -112,23 +112,24 @@
       form.schema = schema;
       form.computeLabel = (s) => s.label || s.name;
 
+      // Use a more robust value-changed handler
       form.addEventListener("value-changed", (ev) => {
-        // THE FIX: Merge the new values into the existing config
-        // And manually ensure 'type' is preserved.
-        const newConfig = { 
-          ...this._config, 
-          ...ev.detail.value 
-        };
+        const config = { ...this._config };
+        const updates = ev.detail.value;
         
-        // Ensure the card type doesn't get lost during entity selection
-        newConfig.type = "custom:long-form-countdown-card";
+        // Manual sync to prevent key loss
+        Object.keys(updates).forEach(key => {
+          config[key] = updates[key];
+        });
 
-        const event = new CustomEvent("config-changed", {
-          detail: { config: newConfig },
+        // Hard-set the card identity
+        config.type = "custom:long-form-countdown-card";
+
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config },
           bubbles: true,
           composed: true,
-        });
-        this.dispatchEvent(event);
+        }));
       });
 
       this.querySelector("div").appendChild(form);
