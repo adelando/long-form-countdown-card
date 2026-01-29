@@ -59,18 +59,16 @@
       
       let output = str;
       units.forEach(u => {
-        const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b(\\s*[:]?\\s*)`, 'gi');
+        // Regex refined to remove that extra space before the separator
+        const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b\\s*([,:]?)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          // Bypassing CSS classes and using INLINE STYLES for total control
           const numColor = this.config[u.key + '_n_color'] || this.config.n_color || 'inherit';
           const wordColor = this.config[u.key + '_l_color'] || this.config.l_color || 'inherit';
           const sepColor = this.config.sep_color || 'inherit';
 
-          return `
-            <span style="color: ${numColor} !important; font-weight: 700; margin-right: 2px;">${p1}</span>
-            <span style="color: ${wordColor} !important; font-weight: 400; margin-right: 4px;">${p2}</span>
-            <span style="color: ${sepColor} !important; margin-right: 6px;">${p3 || ''}</span>
-          `;
+          return `<span style="color: ${numColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
+                 `<span style="color: ${wordColor} !important; font-weight: 400;">${p2}</span>` +
+                 `<span style="color: ${sepColor} !important; margin-right: 8px;">${p3 || ''}</span>`;
         });
       });
       return output;
@@ -85,6 +83,9 @@
             padding: 16px; 
             background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
+            /* Force the card to stop inheriting theme text colors */
+            --primary-text-color: ${this.config.n_color};
+            --secondary-text-color: ${this.config.l_color};
           }
           .header { display: flex; align-items: center; margin-bottom: 8px; }
           .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
@@ -93,6 +94,7 @@
             font-size: ${this.config.font_size}rem; 
             line-height: 1.6; 
             font-weight: 500;
+            color: ${this.config.n_color} !important;
           }
         </style>
         <ha-card>
@@ -109,12 +111,24 @@
     static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
   }
 
-  // --- EDITOR ---
+  // --- EDITOR WITH DATA PERSISTENCE FIX ---
   class LongFormCountdownEditor extends HTMLElement {
-    setConfig(config) { this._config = config; }
-    set hass(hass) { this._hass = hass; this._render(); }
+    setConfig(config) {
+      this._config = config;
+      this._render(); // Force render when config is set/reloaded
+    }
+
+    set hass(hass) {
+      this._hass = hass;
+      if (this._form) this._form.hass = hass;
+    }
+
     _render() {
-      if (this._rendered || !this._hass) return;
+      if (this._rendered) {
+        if (this._form) this._form.data = this._config;
+        return;
+      }
+      
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
         { name: "name", label: "Title Override", selector: { text: {} } },
@@ -154,17 +168,20 @@
           ]
         }
       ];
+
       this.innerHTML = `<div></div>`;
-      const form = document.createElement("ha-form");
-      form.hass = this._hass;
-      form.data = this._config;
-      form.schema = schema;
-      form.computeLabel = (s) => s.label || s.name;
-      form.addEventListener("value-changed", (ev) => {
-        const config = { ...this._config, ...ev.detail.value, type: "custom:long-form-countdown-card" };
+      this._form = document.createElement("ha-form");
+      this._form.hass = this._hass;
+      this._form.data = this._config;
+      this._form.schema = schema;
+      this._form.computeLabel = (s) => s.label || s.name;
+
+      this._form.addEventListener("value-changed", (ev) => {
+        const config = { ...ev.detail.value, type: "custom:long-form-countdown-card" };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
       });
-      this.querySelector("div").appendChild(form);
+
+      this.querySelector("div").appendChild(this._form);
       this._rendered = true;
     }
   }
@@ -176,7 +193,7 @@
   window.customCards.push({
     type: "long-form-countdown-card",
     name: "Long Form Countdown Card",
-    description: "Multi-color countdown with theme-bypass logic.",
+    description: "Deep-syncing multi-color countdown.",
     preview: true
   });
 })();
