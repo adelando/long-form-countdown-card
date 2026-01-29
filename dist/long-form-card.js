@@ -9,9 +9,10 @@
       if (!config.entity) throw new Error("Please define an entity");
       this.config = {
         font_size: 1.2,
-        n_color: 'inherit',
-        l_color: 'inherit',
-        sep_color: 'inherit',
+        n_color: '#000000', // Defaulting to a hard hex to test bypass
+        l_color: '#000000',
+        sep_color: '#000000',
+        theme: 'none',
         ...config
       };
     }
@@ -42,10 +43,6 @@
       } else {
         const timerEl = this.shadowRoot.querySelector('.timer');
         if (timerEl) timerEl.innerHTML = formattedDisplay;
-        const card = this.shadowRoot.querySelector('ha-card');
-        if (card) {
-          card.style.animation = (isFinished && this.config.flash_finished) ? 'blink 1s linear infinite' : 'none';
-        }
       }
       this._lastEntity = this.config.entity;
     }
@@ -59,16 +56,16 @@
       
       let output = str;
       units.forEach(u => {
-        // Regex refined to remove that extra space before the separator
         const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b\\s*([,:]?)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          const numColor = this.config[u.key + '_n_color'] || this.config.n_color || 'inherit';
-          const wordColor = this.config[u.key + '_l_color'] || this.config.l_color || 'inherit';
-          const sepColor = this.config.sep_color || 'inherit';
+          const numColor = this.config[u.key + '_n_color'] || this.config.n_color;
+          const wordColor = this.config[u.key + '_l_color'] || this.config.l_color;
+          const sepColor = this.config.sep_color;
 
-          return `<span style="color: ${numColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
-                 `<span style="color: ${wordColor} !important; font-weight: 400;">${p2}</span>` +
-                 `<span style="color: ${sepColor} !important; margin-right: 8px;">${p3 || ''}</span>`;
+          // ULTIMATE BYPASS: Hardcoded color strings in the style attribute
+          return `<span style="color: ${numColor} !important; font-weight: 700; margin-right: 4px; display: inline-block;">${p1}</span>` +
+                 `<span style="color: ${wordColor} !important; font-weight: 400; display: inline-block;">${p2}</span>` +
+                 `<span style="color: ${sepColor} !important; margin-right: 8px; display: inline-block;">${p3 || ''}</span>`;
         });
       });
       return output;
@@ -76,6 +73,7 @@
 
     _fullRender(stateObj, formattedDisplay, isFinished) {
       const icon = this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline';
+      
       this.shadowRoot.innerHTML = `
         <style>
           @keyframes blink { 50% { opacity: 0; } }
@@ -83,9 +81,12 @@
             padding: 16px; 
             background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
-            /* Force the card to stop inheriting theme text colors */
-            --primary-text-color: ${this.config.n_color};
-            --secondary-text-color: ${this.config.l_color};
+            /* Resetting all common theme variables to force local control */
+            --primary-text-color: initial;
+            --secondary-text-color: initial;
+            --text-primary-color: initial;
+            color: initial !important;
+            ${(isFinished && this.config.flash_finished) ? 'animation: blink 1s linear infinite;' : ''}
           }
           .header { display: flex; align-items: center; margin-bottom: 8px; }
           .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
@@ -94,10 +95,10 @@
             font-size: ${this.config.font_size}rem; 
             line-height: 1.6; 
             font-weight: 500;
-            color: ${this.config.n_color} !important;
+            display: block;
           }
         </style>
-        <ha-card>
+        <ha-card ${this.config.theme !== 'none' ? `theme="${this.config.theme}"` : ''}>
           <div class="header">
             <ha-icon class="icon" icon="${icon}"></ha-icon>
             <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
@@ -108,16 +109,14 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
-    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
+    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2, theme: "none" }; }
   }
 
-  // --- EDITOR WITH DATA PERSISTENCE FIX ---
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) {
       this._config = config;
-      this._render(); // Force render when config is set/reloaded
+      this._render();
     }
-
     set hass(hass) {
       this._hass = hass;
       if (this._form) this._form.hass = hass;
@@ -131,12 +130,21 @@
       
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
-        { name: "name", label: "Title Override", selector: { text: {} } },
-        { name: "icon", selector: { icon: {} } },
-        { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
         {
           type: "grid", name: "", schema: [
-            { name: "bg_color", label: "Background", selector: { text: {} } },
+            { name: "name", label: "Title Override", selector: { text: {} } },
+            { name: "icon", selector: { icon: {} } },
+          ]
+        },
+        {
+          type: "grid", name: "", schema: [
+            { name: "theme", label: "Card Theme", selector: { theme: {} } }, // Adds the theme selector
+            { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
+          ]
+        },
+        {
+          type: "grid", name: "", schema: [
+            { name: "bg_color", label: "Background Color", selector: { text: {} } },
             { name: "title_color", label: "Title & Icon Color", selector: { text: {} } },
             { name: "font_size", label: "Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
           ],
@@ -149,14 +157,14 @@
           ],
         },
         {
-          name: "Global Colors", type: "expandable", schema: [
+          name: "Global Colors (Bypasses Theme)", type: "expandable", schema: [
             { name: "n_color", label: "Global Numbers", selector: { text: {} } },
             { name: "l_color", label: "Global Words", selector: { text: {} } },
             { name: "sep_color", label: "Global Separators", selector: { text: {} } },
           ]
         },
         {
-          name: "Unit Overrides", type: "expandable", schema: [
+          name: "Individual Unit Overrides", type: "expandable", schema: [
             { type: "grid", name: "", schema: [
               { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
               { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
@@ -193,7 +201,7 @@
   window.customCards.push({
     type: "long-form-countdown-card",
     name: "Long Form Countdown Card",
-    description: "Deep-syncing multi-color countdown.",
+    description: "Theme-isolated countdown with hex-override logic.",
     preview: true
   });
 })();
