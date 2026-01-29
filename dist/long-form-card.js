@@ -9,9 +9,11 @@
       if (!config.entity) throw new Error("Please define an entity");
       this.config = {
         font_size: 1.2,
+        title_size: 1,
         n_color: '#ffffff',
         l_color: '#aaaaaa',
         sep_color: '#ffffff',
+        show_header: true,
         ...config
       };
     }
@@ -45,7 +47,7 @@
             --l-clr: ${this.config.l_color};
             --s-clr: ${this.config.sep_color};
             
-            /* Individual Overrides */
+            /* Individual Overrides - Mapping logic fix */
             --y-n: ${this.config.y_n_color || 'var(--n-clr)'}; --y-l: ${this.config.y_l_color || 'var(--l-clr)'};
             --m-n: ${this.config.m_n_color || 'var(--n-clr)'}; --m-l: ${this.config.m_l_color || 'var(--l-clr)'};
             --d-n: ${this.config.d_n_color || 'var(--n-clr)'}; --d-l: ${this.config.d_l_color || 'var(--l-clr)'};
@@ -59,12 +61,23 @@
             border-radius: var(--ha-card-border-radius, 12px);
             ${(isFinished && this.config.flash_finished) ? 'animation: blink 1s linear infinite;' : ''}
           }
-          .header { display: flex; align-items: center; margin-bottom: 8px; }
-          .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
-          .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'} !important; font-weight: 500; }
+          .header { 
+            display: ${this.config.show_header !== false ? 'flex' : 'none'}; 
+            align-items: center; 
+            margin-bottom: 8px; 
+          }
+          .icon { 
+            margin-right: 12px; 
+            color: ${this.config.title_color || 'inherit'} !important; 
+            --mdc-icon-size: ${24 * (this.config.title_size || 1)}px; 
+          }
+          .name { 
+            font-size: ${0.9 * (this.config.title_size || 1)}rem; 
+            color: ${this.config.title_color || 'inherit'} !important; 
+            font-weight: 500; 
+          }
           .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
 
-          /* Color Assignment via Variables */
           .val { font-weight: 700; margin-right: 4px; }
           .lbl { font-weight: 400; }
           .sep { margin-right: 8px; color: var(--s-clr) !important; }
@@ -76,7 +89,7 @@
           .min-v { color: var(--min-n) !important; } .min-l { color: var(--min-l) !important; }
           .s-v { color: var(--s-n) !important; } .s-l { color: var(--s-l) !important; }
         </style>
-        <ha-card>
+        <ha-card theme="${this.config.theme || ''}">
           <div class="header">
             <ha-icon class="icon" icon="${this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline'}"></ha-icon>
             <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
@@ -97,7 +110,7 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
-    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
+    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2, show_header: true, title_size: 1 }; }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
@@ -111,22 +124,32 @@
       if (this._rendered) { if (this._form) this._form.data = this._config; return; }
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
-        { name: "name", label: "Title Override", selector: { text: {} } },
-        { name: "icon", selector: { icon: {} } },
         { type: "grid", name: "", schema: [
-          { name: "bg_color", label: "Background", selector: { text: {} } },
-          { name: "title_color", label: "Title/Icon Color", selector: { text: {} } },
-          { name: "font_size", label: "Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
+          { name: "theme", label: "Dashboard Theme", selector: { theme: {} } },
+          { name: "show_header", label: "Show Title/Icon", selector: { boolean: {} } },
+        ]},
+        { name: "name", label: "Title Override", selector: { text: {} } },
+        { type: "grid", name: "", schema: [
+          { name: "icon", selector: { icon: {} } },
+          { name: "title_size", label: "Title Scale", selector: { number: { min: 0.5, max: 3, step: 0.1, mode: "slider" } } },
+        ]},
+        { type: "grid", name: "", schema: [
+          { name: "bg_color", label: "Background Hex", selector: { text: {} } },
+          { name: "title_color", label: "Title/Icon Hex", selector: { text: {} } },
+          { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
         ]},
         { type: "grid", name: "", schema: [
           { name: "short_form", label: "Short Form", selector: { boolean: {} } },
           { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
           { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
         ]},
-        { name: "n_color", label: "Global Number Color", selector: { text: {} } },
-        { name: "l_color", label: "Global Word Color", selector: { text: {} } },
-        { name: "sep_color", label: "Separator Color", selector: { text: {} } },
-        { name: "Unit Overrides", type: "expandable", schema: [
+        { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
+        { name: "Global Colors", type: "expandable", schema: [
+          { name: "n_color", label: "Global Number Color", selector: { text: {} } },
+          { name: "l_color", label: "Global Word Color", selector: { text: {} } },
+          { name: "sep_color", label: "Separator Color", selector: { text: {} } },
+        ]},
+        { name: "Individual Unit Overrides", type: "expandable", schema: [
           { type: "grid", name: "", schema: [
             { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
             { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
@@ -145,7 +168,7 @@
       this._form.schema = schema;
       this._form.computeLabel = (s) => s.label || s.name;
       this._form.addEventListener("value-changed", (ev) => {
-        const config = { ...this._config, ...ev.detail.value, type: "custom:long-form-countdown-card" };
+        const config = { ...ev.detail.value, type: "custom:long-form-countdown-card" };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
       });
       this.querySelector("div").appendChild(this._form);
@@ -155,12 +178,4 @@
 
   customElements.define("long-form-countdown-card", LongFormCountdownCard);
   customElements.define("long-form-countdown-editor", LongFormCountdownEditor);
-
-  window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "long-form-countdown-card",
-    name: "Long Form Countdown Card",
-    description: "Multi-color countdown with variable-injection logic.",
-    preview: true
-  });
 })();
