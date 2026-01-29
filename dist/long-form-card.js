@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Isolated timer flashing with capitalized elapsed state.",
+      description: "Finalized layout with intuitive settings grouping.",
       preview: true
     });
   }
@@ -43,7 +43,8 @@
       const showHeader = this._getConf('show_header', 'header_settings') !== false;
       const titleSize = this._getConf('title_size', 'header_settings') || 1;
       const icon = this._getConf('icon', 'header_settings') || stateObj.attributes.icon || 'mdi:clock-outline';
-      const bgColor = this._getConf('bg_color', 'timer_settings') || 'var(--ha-card-background)';
+      // Background hex now pulled from header_settings per your request
+      const bgColor = this._getConf('bg_color', 'header_settings') || 'var(--ha-card-background)';
 
       this.shadowRoot.innerHTML = `
         <style>
@@ -86,7 +87,6 @@
           displayStr = this._getConf('finished_text', 'timer_settings') || "Finished";
           timerEl.innerHTML = `<span style="color: ${lGlob} !important;">${displayStr}</span>`;
         } else {
-            // mode is show_elapsed
             timerEl.innerHTML = this._colorizeUnits(displayStr);
         }
         
@@ -106,10 +106,8 @@
       const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
       const sepClr = this._getConf('sep_color', 'global_colors') || nGlob;
 
-      // Handle "Elapsed" with capitalization and global word color
       let processed = str.replace(/\belapsed\b/gi, `<span class="elapsed-text" style="color: ${lGlob} !important; font-weight: 400; margin-right: 8px;">Elapsed</span>`);
 
-      // Logic for formatting
       if (this._getConf('short_form', 'timer_settings')) {
           processed = processed
             .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
@@ -144,7 +142,6 @@
     }
   }
 
-  // (LongFormCountdownEditor class remains identical to previous working version)
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) {
       this._config = config;
@@ -154,7 +151,6 @@
         this._render();
       }
     }
-    
     set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 
     _render() {
@@ -165,6 +161,7 @@
             { name: "show_header", label: "Show Header", selector: { boolean: {} } },
             { name: "name", label: "Title Override", selector: { text: {} } },
             { name: "icon", selector: { icon: {} } },
+            { name: "bg_color", label: "Background Hex Color", selector: { text: {} } },
             { type: "grid", name: "", schema: [
               { name: "title_color", label: "Title Color", selector: { text: {} } },
               { name: "icon_color", label: "Icon Color", selector: { text: {} } },
@@ -174,20 +171,17 @@
         },
         {
           name: "timer_settings", label: "Timer Settings", type: "expandable", schema: [
+            { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
+            { type: "grid", name: "", schema: [
+              { name: "short_form", label: "Short Form", selector: { boolean: {} } },
+              { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
+            ]},
             { name: "finished_mode", label: "When Finished Show...", selector: { select: { options: [
               { value: "show_elapsed", label: "Elapsed Time" },
               { value: "show_text", label: "Finished Text Only" }
             ] } } },
-            { type: "grid", name: "", schema: [
-              { name: "bg_color", label: "Background Hex", selector: { text: {} } },
-              { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
-            ]},
-            { type: "grid", name: "", schema: [
-              { name: "short_form", label: "Short Form", selector: { boolean: {} } },
-              { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
-              { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
-            ]},
             { name: "finished_text", label: "Finished Text", selector: { text: {} } },
+            { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
           ]
         },
         {
