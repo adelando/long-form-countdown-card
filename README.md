@@ -22,7 +22,7 @@ The card uses a nested configuration structure to keep the YAML and Visual Edito
 | Key | Type | Description |
 | :--- | :--- | :--- |
 | `type` | `string` | Must be `custom:long-form-countdown-card`. |
-| `entity` | `string` | The `sensor` entity from the Long Form integration. |
+| `entity` | `string` | The `sensor` entity from the Long Form Word Countdown integration. (sensor.lfwc_x)|
 
 ### 2. Header Settings (`header_settings`)
 | Key | Type | Default | Description |
@@ -58,7 +58,7 @@ This setup uses short unit labels and continues to count up once the date has pa
 
 ```yaml
 type: custom:long-form-countdown-card
-entity: sensor.lwfc_anniversary_countdown
+entity: sensor.lwfc_xx
 header_settings:
   show_header: true
   name: Anniversary
@@ -77,7 +77,7 @@ Perfect for high-visibility cards where you want different colors for different 
 
 ```yaml
 type: custom:long-form-countdown-card
-entity: sensor.vacation_countdown
+entity: sensor.lfwc_xx
 header_settings:
   title_color: "#00bcd4"
   icon_color: "#00bcd4"
@@ -95,7 +95,7 @@ Shows a custom message and flashes once the timer hits zero.
 
 ```yaml
 type: custom:long-form-countdown-card
-entity: sensor.project_deadline
+entity: sensor.lfwc_xx
 header_settings:
   name: PROJECT DUE
   bg_color: "#421212"
@@ -109,11 +109,11 @@ global_colors:
 ```
 
 ### Example 4: The "Full Spectrum" Gradient
-Demonstrates granular control by stepping through the color wheel for every time unit, from years to seconds.
+Full granular control by stepping through the color wheel for every time unit, from years to seconds.
 
 ```yaml
 type: custom:long-form-countdown-card
-entity: sensor.long_term_goal
+entity: sensor.lfwc_xx
 header_settings:
   show_header: true
   name: "The Grand Spectrum"
