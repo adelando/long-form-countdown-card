@@ -72,7 +72,7 @@ global_colors:
   l_color: "#bdbdbd"
 ```
 
-###Example 2: The "Rainbow Overrides"
+### Example 2: The "Rainbow Overrides"
 Perfect for high-visibility cards where you want different colors for different time units.
 
 ```yaml
@@ -88,4 +88,61 @@ unit_overrides:
   h_l_color: "#64b5f6"
   min_n_color: "#ffeb3b" # Yellow Minutes
   min_l_color: "#fff176"
+```
+
+### Example 3: The "Deadline Alert"
+Shows a custom message and flashes once the timer hits zero.
+
+```yaml
+type: custom:long-form-countdown-card
+entity: sensor.project_deadline
+header_settings:
+  name: PROJECT DUE
+  bg_color: "#421212"
+timer_settings:
+  finished_mode: show_text
+  finished_text: "TIME EXPIRED"
+  flash_finished: true
+global_colors:
+  n_color: "#ff5252"
+  l_color: "#ffffff"
+```
+
+### Example 4: The "Full Spectrum" Gradient
+Demonstrates granular control by stepping through the color wheel for every time unit, from years to seconds.
+
+```yaml
+type: custom:long-form-countdown-card
+entity: sensor.long_term_goal
+header_settings:
+  show_header: true
+  name: "The Grand Spectrum"
+  bg_color: "#111111"
+  title_color: "#ffffff"
+  icon: "mdi:palette"
+  icon_color: "#ffffff"
+timer_settings:
+  font_size: 1.5
+  short_form: false
+global_colors:
+  sep_color: "#444444"
+unit_overrides:
+  # Years: Warm Red/Orange
+  y_n_color: "#FF4E50"
+  y_l_color: "#FC913A"
+  # Months: Gold/Yellow
+  m_n_color: "#F9D423"
+  m_l_color: "#EDE574"
+  # Days: Green
+  d_n_color: "#45B649"
+  d_l_color: "#DCE35B"
+  # Hours: Cyan/Teal
+  h_n_color: "#0083B0"
+  h_l_color: "#00B4DB"
+  # Minutes: Deep Blue
+  min_n_color: "#4A00E0"
+  min_l_color: "#8E2DE2"
+  # Seconds: Purple/Pink
+  s_n_color: "#D63384"
+  s_l_color: "#E83E8C"
 ```
