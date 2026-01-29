@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Supports elapsed states and custom finished modes.",
+      description: "Isolated timer flashing with capitalized elapsed state.",
       preview: true
     });
   }
@@ -47,21 +47,21 @@
 
       this.shadowRoot.innerHTML = `
         <style>
-          @keyframes blink { 50% { opacity: 0; } }
+          @keyframes blink { 50% { opacity: 0.3; } }
           ha-card { 
             padding: 16px; 
             background: ${bgColor} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
-            transition: all 0.3s ease;
           }
           .header { display: ${showHeader ? 'flex' : 'none'}; align-items: center; margin-bottom: 8px; }
           .icon { margin-right: 12px; color: ${this._getConf('icon_color', 'header_settings') || 'inherit'} !important; --mdc-icon-size: ${24 * titleSize}px; }
           .name { font-size: ${0.9 * titleSize}rem; color: ${this._getConf('title_color', 'header_settings') || 'inherit'} !important; font-weight: 500; }
           .timer { font-size: ${this._getConf('font_size', 'timer_settings') || 1.2}rem; line-height: 1.6; font-weight: 500; }
           .sep { margin-right: 4px; color: ${this._getConf('sep_color', 'global_colors') || 'inherit'} !important; }
-          .finished-flash { animation: blink 1s linear infinite !important; }
+          .timer-flash { animation: blink 1s linear infinite !important; }
+          .elapsed-text { text-transform: capitalize; }
         </style>
-        <ha-card id="card-container">
+        <ha-card>
           <div class="header">
             <ha-icon class="icon" icon="${icon}"></ha-icon>
             <div class="name">${this._getConf('name', 'header_settings') || stateObj.attributes.friendly_name}</div>
@@ -73,51 +73,52 @@
 
     _updateTimer(stateObj) {
       const timerEl = this.shadowRoot.getElementById('timer-display');
-      const cardEl = this.shadowRoot.getElementById('card-container');
       if (!timerEl) return;
 
       const isFinished = stateObj.attributes.is_finished || stateObj.state.toLowerCase().includes('elapsed');
       const mode = this._getConf('finished_mode', 'timer_settings') || 'show_elapsed';
+      const lGlob = this._getConf('l_color', 'global_colors') || 'var(--secondary-text-color)';
       
       let displayStr = stateObj.state;
 
-      // Logic for post-countdown display
       if (isFinished) {
         if (mode === 'show_text') {
           displayStr = this._getConf('finished_text', 'timer_settings') || "Finished";
+          timerEl.innerHTML = `<span style="color: ${lGlob} !important;">${displayStr}</span>`;
+        } else {
+            // mode is show_elapsed
+            timerEl.innerHTML = this._colorizeUnits(displayStr);
         }
-        // If mode is 'show_elapsed', we just leave displayStr as stateObj.state
         
         if (this._getConf('flash_finished', 'timer_settings')) {
-          cardEl.classList.add('finished-flash');
+          timerEl.classList.add('timer-flash');
         } else {
-          cardEl.classList.remove('finished-flash');
+          timerEl.classList.remove('timer-flash');
         }
       } else {
-        cardEl.classList.remove('finished-flash');
+        timerEl.classList.remove('timer-flash');
+        timerEl.innerHTML = this._colorizeUnits(displayStr);
       }
+    }
 
-      // Formatting
+    _colorizeUnits(str) {
+      const lGlob = this._getConf('l_color', 'global_colors') || 'var(--secondary-text-color)';
+      const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
+      const sepClr = this._getConf('sep_color', 'global_colors') || nGlob;
+
+      // Handle "Elapsed" with capitalization and global word color
+      let processed = str.replace(/\belapsed\b/gi, `<span class="elapsed-text" style="color: ${lGlob} !important; font-weight: 400; margin-right: 8px;">Elapsed</span>`);
+
+      // Logic for formatting
       if (this._getConf('short_form', 'timer_settings')) {
-          displayStr = displayStr
+          processed = processed
             .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
             .replace(/\bdays?\b/gi, 'd').replace(/\bhours?\b/gi, 'h')
             .replace(/\bminutes?\b/gi, 'min').replace(/\bseconds?\b/gi, 's');
       }
       if (this._getConf('hide_seconds', 'timer_settings')) {
-          displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
+          processed = processed.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
       }
-
-      timerEl.innerHTML = this._colorizeUnits(displayStr);
-    }
-
-    _colorizeUnits(str) {
-      // Catch "elapsed" specifically to style it as a label
-      const lGlob = this._getConf('l_color', 'global_colors') || 'var(--secondary-text-color)';
-      const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
-      const sepClr = this._getConf('sep_color', 'global_colors') || nGlob;
-
-      let processed = str.replace(/\belapsed\b/gi, `<span style="color: ${lGlob} !important; font-weight: 400; margin-right: 8px;">elapsed</span>`);
 
       const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
       units.forEach(u => {
@@ -143,6 +144,7 @@
     }
   }
 
+  // (LongFormCountdownEditor class remains identical to previous working version)
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) {
       this._config = config;
