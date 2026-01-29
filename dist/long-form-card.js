@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Stable input logic with individual unit overrides.",
+      description: "Stable visual editor with focus-lock and categorized settings.",
       preview: true
     });
   }
@@ -111,9 +111,11 @@
     setConfig(config) {
       this._config = config;
       if (this._form) {
+        // Update data without rebuilding the form
         this._form.data = this._config;
+      } else {
+        this._render();
       }
-      this._render();
     }
     
     set hass(hass) { 
@@ -122,8 +124,6 @@
     }
 
     _render() {
-      if (this._rendered) return; // Stop re-drawing the whole form on every keystroke
-      
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
         {
@@ -181,10 +181,11 @@
       this._form.computeLabel = (s) => s.label || s.name;
       
       this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation(); // Stop event from bubbling and triggering a double update
         const rawData = ev.detail.value;
         const flattened = { ...rawData };
 
-        // Flatten logic
+        // Pull nested expandable values to the root
         Object.keys(rawData).forEach(key => {
           if (typeof rawData[key] === 'object' && rawData[key] !== null && !Array.isArray(rawData[key])) {
             Object.assign(flattened, rawData[key]);
@@ -194,7 +195,6 @@
 
         const mergedConfig = { ...this._config, ...flattened, type: "custom:long-form-countdown-card" };
         
-        // Dispatch the change
         this.dispatchEvent(new CustomEvent("config-changed", { 
           detail: { config: mergedConfig }, 
           bubbles: true, 
@@ -203,7 +203,6 @@
       });
 
       this.querySelector("div").appendChild(this._form);
-      this._rendered = true;
     }
   }
 
