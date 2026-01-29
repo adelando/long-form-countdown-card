@@ -9,8 +9,8 @@
       if (!config.entity) throw new Error("Please define an entity");
       this.config = {
         font_size: 1.2,
-        n_color: 'var(--primary-color)',
-        l_color: 'var(--primary-color)',
+        n_color: 'var(--primary-text-color)',
+        l_color: 'var(--secondary-text-color)',
         sep_color: 'var(--primary-text-color)',
         ...config
       };
@@ -23,18 +23,13 @@
       const isFinished = stateObj.attributes.is_finished || false;
       let displayStr = stateObj.state;
 
-      // 1. Handle Short Form conversion BEFORE colorizing
       if (this.config.short_form) {
         displayStr = displayStr
-          .replace(/\bmonths?\b/gi, 'm')
-          .replace(/\byears?\b/gi, 'y')
-          .replace(/\bdays?\b/gi, 'd')
-          .replace(/\bhours?\b/gi, 'h')
-          .replace(/\bminutes?\b/gi, 'min')
-          .replace(/\bseconds?\b/gi, 's');
+          .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
+          .replace(/\bdays?\b/gi, 'd').replace(/\bhours?\b/gi, 'h')
+          .replace(/\bminutes?\b/gi, 'min').replace(/\bseconds?\b/gi, 's');
       }
 
-      // 2. Handle Hide Seconds
       if (this.config.hide_seconds) {
         displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
       }
@@ -46,27 +41,26 @@
           @keyframes blink { 50% { opacity: 0; } }
           ha-card { 
             padding: 16px; 
-            background: ${this.config.bg_color || 'var(--ha-card-background)'}; 
+            background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
             ${isFinished && this.config.flash_finished ? 'animation: blink 1s linear infinite;' : ''}
           }
           .header { display: flex; align-items: center; margin-bottom: 8px; }
-          .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'}; --mdc-icon-size: 24px; }
-          .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'}; font-weight: 500; }
+          .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
+          .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'} !important; font-weight: 500; }
           .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
           
-          /* Typography Spacing */
-          .val { font-weight: 700; margin-right: 4px; }
-          .lbl { font-weight: 400; margin-right: 4px; }
-          .sep { color: ${this.config.sep_color}; margin-right: 8px; }
+          .val { font-weight: 700; margin-right: 2px; display: inline-block; }
+          .lbl { font-weight: 400; margin-right: 4px; display: inline-block; }
+          .sep { color: ${this.config.sep_color} !important; margin-right: 6px; display: inline-block; }
           
-          /* Color Logic */
-          .y-v { color: ${this.config.y_n_color || this.config.n_color}; } .y-l { color: ${this.config.y_l_color || this.config.l_color}; }
-          .m-v { color: ${this.config.m_n_color || this.config.n_color}; } .m-l { color: ${this.config.m_l_color || this.config.l_color}; }
-          .d-v { color: ${this.config.d_n_color || this.config.n_color}; } .d-l { color: ${this.config.d_l_color || this.config.l_color}; }
-          .h-v { color: ${this.config.h_n_color || this.config.n_color}; } .h-l { color: ${this.config.h_l_color || this.config.l_color}; }
-          .min-v { color: ${this.config.min_n_color || this.config.n_color}; } .min-l { color: ${this.config.min_l_color || this.config.l_color}; }
-          .s-v { color: ${this.config.s_n_color || this.config.n_color}; } .s-l { color: ${this.config.s_l_color || this.config.l_color}; }
+          /* Force Hex Colors with !important */
+          .y-v { color: ${this.config.y_n_color || this.config.n_color} !important; } .y-l { color: ${this.config.y_l_color || this.config.l_color} !important; }
+          .m-v { color: ${this.config.m_n_color || this.config.n_color} !important; } .m-l { color: ${this.config.m_l_color || this.config.l_color} !important; }
+          .d-v { color: ${this.config.d_n_color || this.config.n_color} !important; } .d-l { color: ${this.config.d_l_color || this.config.l_color} !important; }
+          .h-v { color: ${this.config.h_n_color || this.config.n_color} !important; } .h-l { color: ${this.config.h_l_color || this.config.l_color} !important; }
+          .min-v { color: ${this.config.min_n_color || this.config.n_color} !important; } .min-l { color: ${this.config.min_l_color || this.config.l_color} !important; }
+          .s-v { color: ${this.config.s_n_color || this.config.n_color} !important; } .s-l { color: ${this.config.s_l_color || this.config.l_color} !important; }
         </style>
         <ha-card>
           <div class="header">
@@ -79,20 +73,16 @@
     }
 
     _colorizeUnits(str) {
-      // Define units in descending order of length to prevent partial matches
       const units = [
-        { key: 'y', regex: /years?|y/i },
-        { key: 'm', regex: /months?|m/i },
-        { key: 'd', regex: /days?|d/i },
-        { key: 'h', regex: /hours?|h/i },
-        { key: 'min', regex: /minutes?|min/i },
-        { key: 's', regex: /seconds?|s/i }
+        { key: 'y', regex: /years?|y/i }, { key: 'm', regex: /months?|m/i },
+        { key: 'd', regex: /days?|d/i }, { key: 'h', regex: /hours?|h/i },
+        { key: 'min', regex: /minutes?|min/i }, { key: 's', regex: /seconds?|s/i }
       ];
 
       let output = str;
-      // We process numbers and words together to ensure they are paired correctly
       units.forEach(u => {
-        const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b\\s*([,:]?)`, 'gi');
+        // This regex looks for Number + Unit + optional Separator
+        const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b(\\s*[,:]?\\s*)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
           return `<span class="${u.key}-v val">${p1}</span><span class="${u.key}-l lbl">${p2}</span><span class="sep">${p3}</span>`;
         });
@@ -116,27 +106,27 @@
         { name: "icon", selector: { icon: {} } },
         {
           type: "grid", name: "", schema: [
-            { name: "bg_color", label: "Background (Hex or Var)", selector: { text: {} } },
-            { name: "title_color", label: "Title Color", selector: { text: {} } },
+            { name: "bg_color", label: "Background Color", selector: { text: {} } },
+            { name: "title_color", label: "Title & Icon Color", selector: { text: {} } },
             { name: "font_size", label: "Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
           ],
         },
         {
           type: "grid", name: "", schema: [
-            { name: "short_form", label: "Use y, m, d, h", selector: { boolean: {} } },
+            { name: "short_form", label: "Short Form (y, m, d)", selector: { boolean: {} } },
             { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
-            { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
+            { name: "flash_finished", label: "Flash on Completion", selector: { boolean: {} } },
           ],
         },
         {
           name: "Global Colors", type: "expandable", schema: [
-            { name: "n_color", label: "All Numbers", selector: { text: {} } },
-            { name: "l_color", label: "All Words", selector: { text: {} } },
-            { name: "sep_color", label: "All Separators (:,)", selector: { text: {} } },
+            { name: "n_color", label: "Global Numbers", selector: { text: {} } },
+            { name: "l_color", label: "Global Words", selector: { text: {} } },
+            { name: "sep_color", label: "Global Separators (:,)", selector: { text: {} } },
           ]
         },
         {
-          name: "Individual Unit Colors", type: "expandable", schema: [
+          name: "Individual Unit Overrides", type: "expandable", schema: [
             {
               type: "grid", name: "", schema: [
                 { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
@@ -173,7 +163,7 @@
   window.customCards.push({
     type: "long-form-countdown-card",
     name: "Long Form Countdown Card",
-    description: "Multi-color, short-form, and flash-capable countdown.",
+    description: "Highly customizable countdown with title & icon color support.",
     preview: true
   });
 })();
