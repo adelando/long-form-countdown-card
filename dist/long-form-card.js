@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Fully categorized countdown with independent icon and unit coloring.",
+      description: "Reactive UI with categorized settings and individual unit control.",
       preview: true
     });
   }
@@ -17,19 +17,21 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error("Please define an entity");
+      // Default configurations
       this.config = {
-        font_size: 1.2,
-        title_size: 1,
         show_header: true,
+        title_size: 1,
+        font_size: 1.2,
         n_color: 'var(--primary-text-color)',
         l_color: 'var(--secondary-text-color)',
         sep_color: 'var(--primary-text-color)',
-        icon_color: 'inherit',
+        icon_color: 'var(--primary-text-color)',
         ...config
       };
     }
 
     set hass(hass) {
+      this._hass = hass;
       const stateObj = hass.states[this.config.entity];
       if (!stateObj) return;
 
@@ -48,17 +50,16 @@
         }
       }
 
-      const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
+      this._render(displayStr, isFinished, stateObj);
+    }
 
+    _render(displayStr, isFinished, stateObj) {
+      const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
+      const icon = this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline';
+      
       this.shadowRoot.innerHTML = `
         <style>
           @keyframes blink { 50% { opacity: 0; } }
-          :host {
-            /* Variables defined at host level to ensure injection */
-            --glob-n: ${this.config.n_color};
-            --glob-l: ${this.config.l_color};
-            --glob-s: ${this.config.sep_color};
-          }
           ha-card { 
             padding: 16px; 
             background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
@@ -80,12 +81,16 @@
             color: ${this.config.title_color || 'inherit'} !important; 
             font-weight: 500; 
           }
-          .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
-          .sep { margin-right: 8px; color: var(--glob-s) !important; }
+          .timer { 
+            font-size: ${this.config.font_size}rem; 
+            line-height: 1.6; 
+            font-weight: 500; 
+          }
+          .sep { margin-right: 8px; color: ${this.config.sep_color} !important; }
         </style>
         <ha-card>
           <div class="header">
-            <ha-icon class="icon" icon="${this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline'}"></ha-icon>
+            <ha-icon class="icon" icon="${icon}"></ha-icon>
             <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
           </div>
           <div class="timer">${formattedDisplay}</div>
@@ -102,9 +107,8 @@
       units.forEach(u => {
         const regex = new RegExp(`(\\d+)\\s*(${u.r.source})\\b\\s*([,:]?)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          // Inline style injection for 100% override reliability
-          const nColor = this.config[`${u.k}_n_color`] || 'var(--glob-n)';
-          const lColor = this.config[`${u.k}_l_color`] || 'var(--glob-l)';
+          const nColor = this.config[`${u.k}_n_color`] || this.config.n_color;
+          const lColor = this.config[`${u.k}_l_color`] || this.config.l_color;
           return `<span style="color: ${nColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
                  `<span style="color: ${lColor} !important; font-weight: 400;">${p2}</span>` +
                  `<span class="sep">${p3 || ''}</span>`;
@@ -114,14 +118,19 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
+    static getStubConfig() { return { entity: "", show_header: true, title_size: 1, font_size: 1.2 }; }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
-    setConfig(config) { this._config = config; this._render(); }
+    setConfig(config) {
+      this._config = config;
+      this._render();
+    }
     set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 
     _render() {
       if (this._rendered) { if (this._form) this._form.data = this._config; return; }
+      
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
         {
@@ -130,8 +139,8 @@
             { name: "name", label: "Title Override", selector: { text: {} } },
             { name: "icon", selector: { icon: {} } },
             { type: "grid", name: "", schema: [
-              { name: "title_color", label: "Title Color", selector: { text: {} } },
-              { name: "icon_color", label: "Icon Color", selector: { text: {} } },
+              { name: "title_color", label: "Title Color (Hex)", selector: { text: {} } },
+              { name: "icon_color", label: "Icon Color (Hex)", selector: { text: {} } },
               { name: "title_size", label: "Header Scale", selector: { number: { min: 0.5, max: 3, step: 0.1, mode: "slider" } } },
             ]},
           ]
@@ -139,7 +148,7 @@
         {
           name: "Timer Settings", type: "expandable", schema: [
             { type: "grid", name: "", schema: [
-              { name: "bg_color", label: "Card Background Hex", selector: { text: {} } },
+              { name: "bg_color", label: "Background (Hex)", selector: { text: {} } },
               { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
             ]},
             { type: "grid", name: "", schema: [
@@ -147,7 +156,7 @@
               { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
               { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
             ]},
-            { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
+            { name: "finished_text", label: "Finished Text", selector: { text: {} } },
           ]
         },
         {
@@ -178,7 +187,7 @@
       this._form.schema = schema;
       this._form.computeLabel = (s) => s.label || s.name;
       this._form.addEventListener("value-changed", (ev) => {
-        const config = { ...this._config, ...ev.detail.value, type: "custom:long-form-countdown-card" };
+        const config = { ...ev.detail.value, type: "custom:long-form-countdown-card" };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
       });
       this.querySelector("div").appendChild(this._form);
