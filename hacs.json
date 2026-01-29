@@ -1,4 +1,6 @@
 {
   "name": "Long Form Countdown Card",
-  "type": "plugin"
+  "render_readme": true,
+  "type": "plugin",
+  "filename": "long-form-card.js"
 }
