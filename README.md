@@ -1,40 +1,72 @@
 # Long Form Countdown Card
-An ultra-customizable Home Assistant dashboard card designed specifically for the **Long Form Word Countdown** integration.
+
+A highly customizable Home Assistant Lovelace card designed specifically for the **Long Form Word Countdown** integration. This card allows you to display countdowns with granular control over colors, styling, and "finished" states.
+
+> [!IMPORTANT]  
+> **Requirement:** This card only works with the [Long Form Word Countdown integration](https://github.com/adelando/long-form-word-countdown). Ensure the integration is installed and configured before using this card.
 
 ## Features
-- 🎨 **Granular Color Control**: Set independent colors for Years, Months, and Days.
-- 🌈 **Full Styling**: Customize background, title, and primary countdown colors.
-- ⚡ **Visual Editor**: Full support for the Home Assistant dashboard editor—no YAML required.
-- 🚨 **Flash on Zero**: Optional animation when the countdown reaches zero.
+- **Nested Configuration:** Clean, organized visual editor.
+- **Unit Overrides:** Change the color of specific numbers and labels (Years, Months, Days, etc.).
+- **Smart "Finished" States:** Choose between showing elapsed time or custom text.
+- **Dynamic Styling:** Optional flashing alerts and scaling headers.
+- **Flicker-Free:** Efficient rendering logic that keeps the header static while the timer ticks.
 
-## Installation
-### via HACS (Recommended)
-1. Go to **HACS** > **Frontend**.
-2. Click the three dots in the top right and select **Custom repositories**.
-3. Paste the URL of this repository and select **Plugin** as the category.
-4. Click **Install**.
+---
 
-## Configuration
-The card can be configured entirely through the UI. 
+## Configuration Reference
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `entity` | string | **Required** | The `sensor.lfwc_` entity. |
-| `bg_color` | string | `var(--ha-card-background)` | Hex or CSS variable for the card background. |
-| `num_color` | string | `var(--primary-color)` | The color of the numbers/time units. |
-| `year_color` | string | `num_color` | Specific color for the 'Year' text. |
-| `month_color` | string | `num_color` | Specific color for the 'Month' text. |
-| `day_color` | string | `num_color` | Specific color for the 'Day' text. |
-| `flash_zero` | boolean | `false` | Flashes the card red when finished. |
+The card uses a nested configuration structure to keep the YAML and Visual Editor organized.
 
-## Example YAML
+### 1. Root Options
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `type` | `string` | Must be `custom:long-form-countdown-card`. |
+| `entity` | `string` | The `sensor` entity from the Long Form integration. |
+
+### 2. Header Settings (`header_settings`)
+| Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `show_header` | `boolean` | `true` | Toggle the icon and title visibility. |
+| `name` | `string` | Entity Name | Override the title text. |
+| `icon` | `string` | Entity Icon | Override the MDI icon. |
+| `bg_color` | `string` | `var(--ha-card-background)` | Hex color for the card background. |
+| `title_color` | `string` | `inherit` | Hex color for the title text. |
+| `icon_color` | `string` | `inherit` | Hex color for the icon. |
+| `title_size` | `number` | `1` | Scale factor for the header (0.5 to 3.0). |
+
+### 3. Timer Settings (`timer_settings`)
+| Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `font_size` | `number` | `1.2` | Font size of the timer in `rem`. |
+| `short_form` | `boolean` | `false` | Converts "hours" to "h", "minutes" to "min", etc. |
+| `hide_seconds`| `boolean` | `false` | Strips seconds from the display. |
+| `finished_mode`| `string` | `show_elapsed` | `show_elapsed` (counts up) or `show_text` (static). |
+| `finished_text`| `string` | "Finished" | The text to display in `show_text` mode. |
+| `flash_finished`| `boolean` | `false` | Makes the timer text pulse when time has elapsed. |
+
+### 4. Global & Unit Colors
+- **`global_colors`**: Set `n_color` (numbers), `l_color` (labels/words), and `sep_color` (separators like `:`).
+- **`unit_overrides`**: Apply specific colors to units. Use `{unit}_n_color` for numbers and `{unit}_l_color` for words (Units: `y, m, d, h, min, s`).
+
+---
+
+## Example Use Cases
+
+### Example 1: The "Minimalist" (Short form & Elapsed)
+This setup uses short unit labels and continues to count up once the date has passed.
+
 ```yaml
 type: custom:long-form-countdown-card
-entity: sensor.lfwc_avengers_doomsday
-title_color: "#aaaaaa"
-num_color: "#3498db"
-year_color: "#e74c3c"
-month_color: "#f1c40f"
-day_color: "#2ecc71"
-bg_color: "#1a1a1a"
-
+entity: sensor.lwfc_anniversary_countdown
+header_settings:
+  show_header: true
+  name: Anniversary
+  bg_color: "#1a1a1a"
+timer_settings:
+  short_form: true
+  finished_mode: show_elapsed
+  flash_finished: false
+global_colors:
+  n_color: "#ff9800"
+  l_color: "#bdbdbd"
