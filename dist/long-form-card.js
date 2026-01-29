@@ -12,7 +12,6 @@
         n_color: 'var(--primary-text-color)',
         l_color: 'var(--secondary-text-color)',
         sep_color: 'var(--primary-text-color)',
-        finished_text: 'Finished',
         ...config
       };
     }
@@ -22,7 +21,7 @@
       if (!stateObj) return;
 
       const isFinished = stateObj.attributes.is_finished || false;
-      let displayStr = isFinished ? this.config.finished_text : stateObj.state;
+      let displayStr = isFinished ? (this.config.finished_text || "Finished") : stateObj.state;
 
       if (!isFinished) {
         if (this.config.short_form) {
@@ -38,19 +37,14 @@
 
       const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
 
-      // Only update the inner timer content to prevent Icon flickering
       if (!this.shadowRoot.innerHTML || this._needsFullRender(stateObj)) {
         this._fullRender(stateObj, formattedDisplay, isFinished);
       } else {
         const timerEl = this.shadowRoot.querySelector('.timer');
         if (timerEl) timerEl.innerHTML = formattedDisplay;
-        
-        // Update flashing state without re-rendering everything
         const card = this.shadowRoot.querySelector('ha-card');
-        if (isFinished && this.config.flash_finished) {
-           card.style.animation = 'blink 1s linear infinite';
-        } else {
-           card.style.animation = 'none';
+        if (card) {
+          card.style.animation = (isFinished && this.config.flash_finished) ? 'blink 1s linear infinite' : 'none';
         }
       }
       this._lastState = stateObj.state;
@@ -67,6 +61,11 @@
       this.shadowRoot.innerHTML = `
         <style>
           @keyframes blink { 50% { opacity: 0; } }
+          :host {
+            --timer-n-color: ${this.config.n_color};
+            --timer-l-color: ${this.config.l_color};
+            --timer-s-color: ${this.config.sep_color};
+          }
           ha-card { 
             padding: 16px; 
             background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
@@ -75,26 +74,21 @@
           .header { display: flex; align-items: center; margin-bottom: 8px; }
           .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'} !important; --mdc-icon-size: 24px; }
           .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'} !important; font-weight: 500; }
+          
           .timer { 
             font-size: ${this.config.font_size}rem; 
             line-height: 1.6; 
             font-weight: 500;
-            color: ${this.config.n_color} !important; 
           }
-          
-          /* Target spans explicitly to force Hex Colors */
+
+          /* Targeted Styling to force HEX colors */
           .timer span { display: inline-block; }
-          .val { font-weight: 700; margin-right: 2px; }
-          .lbl { font-weight: 400; margin-right: 4px; }
-          .sep { color: ${this.config.sep_color} !important; margin-right: 6px; }
+          .val { font-weight: 700; margin-right: 2px; color: var(--timer-n-color) !important; }
+          .lbl { font-weight: 400; margin-right: 4px; color: var(--timer-l-color) !important; }
+          .sep { margin-right: 6px; color: var(--timer-s-color) !important; }
           
-          /* Per-unit Overrides */
-          .y-v { color: ${this.config.y_n_color || this.config.n_color} !important; } .y-l { color: ${this.config.y_l_color || this.config.l_color} !important; }
-          .m-v { color: ${this.config.m_n_color || this.config.n_color} !important; } .m-l { color: ${this.config.m_l_color || this.config.l_color} !important; }
-          .d-v { color: ${this.config.d_n_color || this.config.n_color} !important; } .d-l { color: ${this.config.d_l_color || this.config.l_color} !important; }
-          .h-v { color: ${this.config.h_n_color || this.config.n_color} !important; } .h-l { color: ${this.config.h_l_color || this.config.l_color} !important; }
-          .min-v { color: ${this.config.min_n_color || this.config.n_color} !important; } .min-l { color: ${this.config.min_l_color || this.config.l_color} !important; }
-          .s-v { color: ${this.config.s_n_color || this.config.n_color} !important; } .s-l { color: ${this.config.s_l_color || this.config.l_color} !important; }
+          /* Overrides with higher specificity */
+          ${this._generateOverrideStyles()}
         </style>
         <ha-card>
           <div class="header">
@@ -106,6 +100,14 @@
       `;
     }
 
+    _generateOverrideStyles() {
+      const units = ['y', 'm', 'd', 'h', 'min', 's'];
+      return units.map(u => `
+        .${u}-v { color: ${this.config[u + '_n_color'] || 'var(--timer-n-color)'} !important; }
+        .${u}-l { color: ${this.config[u + '_l_color'] || 'var(--timer-l-color)'} !important; }
+      `).join('');
+    }
+
     _colorizeUnits(str) {
       const units = [
         { key: 'y', regex: /years?|y/i }, { key: 'm', regex: /months?|m/i },
@@ -114,9 +116,10 @@
       ];
       let output = str;
       units.forEach(u => {
+        // Regex now captures the colon or comma explicitly
         const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b(\\s*[:]?\\s*)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          return `<span class="${u.key}-v val">${p1}</span><span class="${u.key}-l lbl">${p2}</span><span class="sep">${p3}</span>`;
+          return `<span class="${u.key}-v val">${p1}</span><span class="${u.key}-l lbl">${p2}</span><span class="sep">${p3 || ''}</span>`;
         });
       });
       return output;
@@ -126,10 +129,10 @@
     static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2 }; }
   }
 
+  // --- EDITOR REMAINS THE SAME (PREVIOUS VERSION WORKING) ---
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) { this._config = config; }
     set hass(hass) { this._hass = hass; this._render(); }
-
     _render() {
       if (this._rendered || !this._hass) return;
       const schema = [
@@ -159,21 +162,18 @@
           ]
         },
         {
-          name: "Individual Unit Overrides", type: "expandable", schema: [
-            {
-              type: "grid", name: "", schema: [
-                { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
-                { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
-                { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
-                { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
-                { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
-                { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
-              ]
-            }
+          name: "Unit Overrides", type: "expandable", schema: [
+            { type: "grid", name: "", schema: [
+              { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
+              { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
+              { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
+              { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
+              { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
+              { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
+            ]}
           ]
         }
       ];
-
       this.innerHTML = `<div></div>`;
       const form = document.createElement("ha-form");
       form.hass = this._hass;
