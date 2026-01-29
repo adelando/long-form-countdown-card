@@ -23,17 +23,20 @@
       const isFinished = stateObj.attributes.is_finished || false;
       let displayStr = stateObj.state;
 
-      // Logic for Short Form
+      // 1. Handle Short Form conversion BEFORE colorizing
       if (this.config.short_form) {
         displayStr = displayStr
-          .replace(/years?/gi, 'y').replace(/months?/gi, 'm')
-          .replace(/days?/gi, 'd').replace(/hours?/gi, 'h')
-          .replace(/minutes?/gi, 'm').replace(/seconds?/gi, 's');
+          .replace(/\bmonths?\b/gi, 'm')
+          .replace(/\byears?\b/gi, 'y')
+          .replace(/\bdays?\b/gi, 'd')
+          .replace(/\bhours?\b/gi, 'h')
+          .replace(/\bminutes?\b/gi, 'min')
+          .replace(/\bseconds?\b/gi, 's');
       }
 
-      // Logic for Hide Seconds
+      // 2. Handle Hide Seconds
       if (this.config.hide_seconds) {
-        displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)/gi, '');
+        displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
       }
 
       const formattedDisplay = this._colorizeUnits(displayStr);
@@ -51,11 +54,13 @@
           .icon { margin-right: 12px; color: ${this.config.title_color || 'inherit'}; --mdc-icon-size: 24px; }
           .name { font-size: 0.9rem; color: ${this.config.title_color || 'inherit'}; font-weight: 500; }
           .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
-          .val { font-weight: 700; }
-          .lbl { font-weight: 400; margin-left: 2px; }
-          .sep { color: ${this.config.sep_color}; margin-right: 6px; }
           
-          /* Individual Overrides */
+          /* Typography Spacing */
+          .val { font-weight: 700; margin-right: 4px; }
+          .lbl { font-weight: 400; margin-right: 4px; }
+          .sep { color: ${this.config.sep_color}; margin-right: 8px; }
+          
+          /* Color Logic */
           .y-v { color: ${this.config.y_n_color || this.config.n_color}; } .y-l { color: ${this.config.y_l_color || this.config.l_color}; }
           .m-v { color: ${this.config.m_n_color || this.config.n_color}; } .m-l { color: ${this.config.m_l_color || this.config.l_color}; }
           .d-v { color: ${this.config.d_n_color || this.config.n_color}; } .d-l { color: ${this.config.d_l_color || this.config.l_color}; }
@@ -74,16 +79,23 @@
     }
 
     _colorizeUnits(str) {
+      // Define units in descending order of length to prevent partial matches
       const units = [
-        { key: 'y', regex: /(year[s]?|y)/gi }, { key: 'm', regex: /(month[s]?|m)/gi },
-        { key: 'd', regex: /(day[s]?|d)/gi }, { key: 'h', regex: /(hour[s]?|h)/gi },
-        { key: 'min', regex: /(minute[s]?|m)/gi }, { key: 's', regex: /(second[s]?|s)/gi }
+        { key: 'y', regex: /years?|y/i },
+        { key: 'm', regex: /months?|m/i },
+        { key: 'd', regex: /days?|d/i },
+        { key: 'h', regex: /hours?|h/i },
+        { key: 'min', regex: /minutes?|min/i },
+        { key: 's', regex: /seconds?|s/i }
       ];
+
       let output = str;
+      // We process numbers and words together to ensure they are paired correctly
       units.forEach(u => {
-        // Fix: Added space and better separator handling
-        output = output.replace(new RegExp(`(\\d+)\\s*(${u.regex.source})\\s*([,:]?)`, 'gi'), 
-          `<span class="${u.key}-v val">$1</span> <span class="${u.key}-l lbl">$2</span><span class="sep">$3</span>`);
+        const regex = new RegExp(`(\\d+)\\s*(${u.regex.source})\\b\\s*([,:]?)`, 'gi');
+        output = output.replace(regex, (match, p1, p2, p3) => {
+          return `<span class="${u.key}-v val">${p1}</span><span class="${u.key}-l lbl">${p2}</span><span class="sep">${p3}</span>`;
+        });
       });
       return output;
     }
@@ -104,35 +116,37 @@
         { name: "icon", selector: { icon: {} } },
         {
           type: "grid", name: "", schema: [
-            { name: "bg_color", label: "Background Color", selector: { text: {} } },
+            { name: "bg_color", label: "Background (Hex or Var)", selector: { text: {} } },
             { name: "title_color", label: "Title Color", selector: { text: {} } },
-            { name: "font_size", label: "Font Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
+            { name: "font_size", label: "Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
           ],
         },
         {
           type: "grid", name: "", schema: [
-            { name: "short_form", label: "Short Form (y, d, h)", selector: { boolean: {} } },
+            { name: "short_form", label: "Use y, m, d, h", selector: { boolean: {} } },
             { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
-            { name: "flash_finished", label: "Flash when finished", selector: { boolean: {} } },
+            { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
           ],
         },
         {
           name: "Global Colors", type: "expandable", schema: [
-            { name: "n_color", label: "Numbers Color", selector: { text: {} } },
-            { name: "l_color", label: "Words Color", selector: { text: {} } },
-            { name: "sep_color", label: "Separator (:,) Color", selector: { text: {} } },
+            { name: "n_color", label: "All Numbers", selector: { text: {} } },
+            { name: "l_color", label: "All Words", selector: { text: {} } },
+            { name: "sep_color", label: "All Separators (:,)", selector: { text: {} } },
           ]
         },
         {
-          name: "Unit Color Overrides", type: "expandable", schema: [
-            { type: "grid", name: "", schema: [
-              { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
-              { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
-              { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
-              { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
-              { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
-              { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
-            ]}
+          name: "Individual Unit Colors", type: "expandable", schema: [
+            {
+              type: "grid", name: "", schema: [
+                { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
+                { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
+                { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
+                { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
+                { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
+                { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
+              ]
+            }
           ]
         }
       ];
@@ -159,7 +173,7 @@
   window.customCards.push({
     type: "long-form-countdown-card",
     name: "Long Form Countdown Card",
-    description: "The complete custom countdown experience.",
+    description: "Multi-color, short-form, and flash-capable countdown.",
     preview: true
   });
 })();
