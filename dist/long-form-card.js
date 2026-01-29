@@ -1,11 +1,10 @@
 (function() {
-  // 1. Register for UI Selector immediately
   window.customCards = window.customCards || [];
   if (!window.customCards.find(c => c.type === 'long-form-countdown-card')) {
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Customizable countdown with deep theme override support.",
+      description: "Fully categorized countdown with independent icon and unit coloring.",
       preview: true
     });
   }
@@ -25,6 +24,7 @@
         n_color: 'var(--primary-text-color)',
         l_color: 'var(--secondary-text-color)',
         sep_color: 'var(--primary-text-color)',
+        icon_color: 'inherit',
         ...config
       };
     }
@@ -54,17 +54,10 @@
         <style>
           @keyframes blink { 50% { opacity: 0; } }
           :host {
-            --n-clr: ${this.config.n_color || 'inherit'};
-            --l-clr: ${this.config.l_color || 'inherit'};
-            --s-clr: ${this.config.sep_color || 'inherit'};
-            
-            /* Individual Overrides */
-            --y-n: ${this.config.y_n_color || 'var(--n-clr)'}; --y-l: ${this.config.y_l_color || 'var(--l-clr)'};
-            --m-n: ${this.config.m_n_color || 'var(--n-clr)'}; --m-l: ${this.config.m_l_color || 'var(--l-clr)'};
-            --d-n: ${this.config.d_n_color || 'var(--n-clr)'}; --d-l: ${this.config.d_l_color || 'var(--l-clr)'};
-            --h-n: ${this.config.h_n_color || 'var(--n-clr)'}; --h-l: ${this.config.h_l_color || 'var(--l-clr)'};
-            --min-n: ${this.config.min_n_color || 'var(--n-clr)'}; --min-l: ${this.config.min_l_color || 'var(--l-clr)'};
-            --s-n: ${this.config.s_n_color || 'var(--n-clr)'}; --s-l: ${this.config.s_l_color || 'var(--l-clr)'};
+            /* Variables defined at host level to ensure injection */
+            --glob-n: ${this.config.n_color};
+            --glob-l: ${this.config.l_color};
+            --glob-s: ${this.config.sep_color};
           }
           ha-card { 
             padding: 16px; 
@@ -79,7 +72,7 @@
           }
           .icon { 
             margin-right: 12px; 
-            color: ${this.config.title_color || 'inherit'} !important; 
+            color: ${this.config.icon_color} !important; 
             --mdc-icon-size: ${24 * (this.config.title_size || 1)}px; 
           }
           .name { 
@@ -88,19 +81,9 @@
             font-weight: 500; 
           }
           .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
-
-          .val { font-weight: 700; margin-right: 4px; }
-          .lbl { font-weight: 400; }
-          .sep { margin-right: 8px; color: var(--s-clr) !important; }
-
-          .y-v { color: var(--y-n) !important; } .y-l { color: var(--y-l) !important; }
-          .m-v { color: var(--m-n) !important; } .m-l { color: var(--m-l) !important; }
-          .d-v { color: var(--d-n) !important; } .d-l { color: var(--d-l) !important; }
-          .h-v { color: var(--h-n) !important; } .h-l { color: var(--h-l) !important; }
-          .min-v { color: var(--min-n) !important; } .min-l { color: var(--min-l) !important; }
-          .s-v { color: var(--s-n) !important; } .s-l { color: var(--s-l) !important; }
+          .sep { margin-right: 8px; color: var(--glob-s) !important; }
         </style>
-        <ha-card theme="${this.config.theme || ''}">
+        <ha-card>
           <div class="header">
             <ha-icon class="icon" icon="${this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline'}"></ha-icon>
             <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
@@ -111,11 +94,21 @@
     }
 
     _colorizeUnits(str) {
-      const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
+      const units = [
+        {k:'y', r:/years?|y/i}, {k:'m', r:/months?|m/i}, {k:'d', r:/days?|d/i}, 
+        {k:'h', r:/hours?|h/i}, {k:'min', r:/minutes?|min/i}, {k:'s', r:/seconds?|s/i}
+      ];
       let output = str;
       units.forEach(u => {
         const regex = new RegExp(`(\\d+)\\s*(${u.r.source})\\b\\s*([,:]?)`, 'gi');
-        output = output.replace(regex, `<span class="${u.k}-v val">$1</span><span class="${u.k}-l lbl">$2</span><span class="sep">$3</span>`);
+        output = output.replace(regex, (match, p1, p2, p3) => {
+          // Inline style injection for 100% override reliability
+          const nColor = this.config[`${u.k}_n_color`] || 'var(--glob-n)';
+          const lColor = this.config[`${u.k}_l_color`] || 'var(--glob-l)';
+          return `<span style="color: ${nColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
+                 `<span style="color: ${lColor} !important; font-weight: 400;">${p2}</span>` +
+                 `<span class="sep">${p3 || ''}</span>`;
+        });
       });
       return output;
     }
@@ -124,49 +117,58 @@
   }
 
   class LongFormCountdownEditor extends HTMLElement {
-    setConfig(config) {
-      this._config = config;
-      this._render();
-    }
+    setConfig(config) { this._config = config; this._render(); }
     set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 
     _render() {
       if (this._rendered) { if (this._form) this._form.data = this._config; return; }
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
-        { type: "grid", name: "", schema: [
-          { name: "theme", label: "Dashboard Theme", selector: { theme: {} } },
-          { name: "show_header", label: "Show Title/Icon", selector: { boolean: {} } },
-        ]},
-        { name: "name", label: "Title Override", selector: { text: {} } },
-        { type: "grid", name: "", schema: [
-          { name: "icon", selector: { icon: {} } },
-          { name: "title_size", label: "Title Scale", selector: { number: { min: 0.5, max: 3, step: 0.1, mode: "slider" } } },
-        ]},
-        { type: "grid", name: "", schema: [
-          { name: "bg_color", label: "Background Hex", selector: { text: {} } },
-          { name: "title_color", label: "Title/Icon Hex", selector: { text: {} } },
-          { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
-        ]},
-        { type: "grid", name: "", schema: [
-          { name: "short_form", label: "Short Form", selector: { boolean: {} } },
-          { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
-          { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
-        ]},
-        { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
-        { name: "n_color", label: "Global Number Color", selector: { text: {} } },
-        { name: "l_color", label: "Global Word Color", selector: { text: {} } },
-        { name: "sep_color", label: "Separator Color", selector: { text: {} } },
-        { name: "Individual Overrides", type: "expandable", schema: [
-          { type: "grid", name: "", schema: [
-            { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
-            { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
-            { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
-            { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
-            { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
-            { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
-          ]}
-        ]}
+        {
+          name: "Header Settings", type: "expandable", schema: [
+            { name: "show_header", label: "Show Header", selector: { boolean: {} } },
+            { name: "name", label: "Title Override", selector: { text: {} } },
+            { name: "icon", selector: { icon: {} } },
+            { type: "grid", name: "", schema: [
+              { name: "title_color", label: "Title Color", selector: { text: {} } },
+              { name: "icon_color", label: "Icon Color", selector: { text: {} } },
+              { name: "title_size", label: "Header Scale", selector: { number: { min: 0.5, max: 3, step: 0.1, mode: "slider" } } },
+            ]},
+          ]
+        },
+        {
+          name: "Timer Settings", type: "expandable", schema: [
+            { type: "grid", name: "", schema: [
+              { name: "bg_color", label: "Card Background Hex", selector: { text: {} } },
+              { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
+            ]},
+            { type: "grid", name: "", schema: [
+              { name: "short_form", label: "Short Form", selector: { boolean: {} } },
+              { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
+              { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
+            ]},
+            { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
+          ]
+        },
+        {
+          name: "Global Colors", type: "expandable", schema: [
+            { name: "n_color", label: "Global Number Color", selector: { text: {} } },
+            { name: "l_color", label: "Global Word Color", selector: { text: {} } },
+            { name: "sep_color", label: "Separator Color", selector: { text: {} } },
+          ]
+        },
+        {
+          name: "Individual Unit Overrides", type: "expandable", schema: [
+            { type: "grid", name: "", schema: [
+              { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
+              { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
+              { name: "d_n_color", label: "Day Num", selector: { text: {} } }, { name: "d_l_color", label: "Day Word", selector: { text: {} } },
+              { name: "h_n_color", label: "Hour Num", selector: { text: {} } }, { name: "h_l_color", label: "Hour Word", selector: { text: {} } },
+              { name: "min_n_color", label: "Min Num", selector: { text: {} } }, { name: "min_l_color", label: "Min Word", selector: { text: {} } },
+              { name: "s_n_color", label: "Sec Num", selector: { text: {} } }, { name: "s_l_color", label: "Sec Word", selector: { text: {} } },
+            ]}
+          ]
+        }
       ];
 
       this.innerHTML = `<div></div>`;
