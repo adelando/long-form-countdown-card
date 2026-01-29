@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Stable visual editor with focus-lock and categorized settings.",
+      description: "Non-flickering header with stable input focus.",
       preview: true
     });
   }
@@ -13,115 +13,132 @@
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
+      this._initialized = false;
     }
 
     setConfig(config) {
       if (!config.entity) throw new Error("Please define an entity");
-      this.config = {
-        show_header: true,
-        title_size: 1,
-        font_size: 1.2,
-        n_color: 'var(--primary-text-color)',
-        l_color: 'var(--secondary-text-color)',
-        sep_color: 'var(--primary-text-color)',
-        icon_color: 'var(--primary-text-color)',
-        ...config
-      };
+      this.config = config;
+    }
+
+    _getConf(key, section = null) {
+      if (section && this.config[section] && this.config[section][key] !== undefined) {
+        return this.config[section][key];
+      }
+      return this.config[key];
     }
 
     set hass(hass) {
       const stateObj = hass.states[this.config.entity];
-      if (!stateObj) return;
+      if (!stateObj || !hass) return;
 
-      const isFinished = stateObj.attributes.is_finished || false;
-      let displayStr = isFinished ? (this.config.finished_text || "Finished") : stateObj.state;
-
-      if (!isFinished) {
-        if (this.config.short_form) {
-          displayStr = displayStr
-            .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
-            .replace(/\bdays?\b/gi, 'd').replace(/\bhours?\b/gi, 'h')
-            .replace(/\bminutes?\b/gi, 'min').replace(/\bseconds?\b/gi, 's');
-        }
-        if (this.config.hide_seconds) {
-          displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
-        }
+      if (!this._initialized) {
+        this._firstRender(stateObj);
+        this._initialized = true;
       }
 
-      const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
-      const icon = this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline';
-      
+      this._updateTimer(stateObj);
+    }
+
+    _firstRender(stateObj) {
+      const showHeader = this._getConf('show_header', 'header_settings') !== false;
+      const titleSize = this._getConf('title_size', 'header_settings') || 1;
+      const icon = this._getConf('icon', 'header_settings') || stateObj.attributes.icon || 'mdi:clock-outline';
+      const iconColor = this._getConf('icon_color', 'header_settings') || 'inherit';
+      const titleColor = this._getConf('title_color', 'header_settings') || 'inherit';
+      const bgColor = this._getConf('bg_color', 'timer_settings') || 'var(--ha-card-background)';
+
       this.shadowRoot.innerHTML = `
         <style>
           @keyframes blink { 50% { opacity: 0; } }
           ha-card { 
             padding: 16px; 
-            background: ${this.config.bg_color || 'var(--ha-card-background)'} !important; 
+            background: ${bgColor} !important; 
             border-radius: var(--ha-card-border-radius, 12px);
-            ${(isFinished && this.config.flash_finished) ? 'animation: blink 1s linear infinite;' : ''}
           }
-          .header { 
-            display: ${this.config.show_header !== false ? 'flex' : 'none'}; 
-            align-items: center; 
-            margin-bottom: 8px; 
-          }
-          .icon { 
-            margin-right: 12px; 
-            color: ${this.config.icon_color} !important; 
-            --mdc-icon-size: ${24 * (this.config.title_size || 1)}px; 
-          }
-          .name { 
-            font-size: ${0.9 * (this.config.title_size || 1)}rem; 
-            color: ${this.config.title_color || 'inherit'} !important; 
-            font-weight: 500; 
-          }
-          .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
-          .sep { margin-right: 8px; color: ${this.config.sep_color} !important; }
+          .header { display: ${showHeader ? 'flex' : 'none'}; align-items: center; margin-bottom: 8px; }
+          .icon { margin-right: 12px; color: ${iconColor} !important; --mdc-icon-size: ${24 * titleSize}px; }
+          .name { font-size: ${0.9 * titleSize}rem; color: ${titleColor} !important; font-weight: 500; }
+          .timer { font-size: ${this._getConf('font_size', 'timer_settings') || 1.2}rem; line-height: 1.6; font-weight: 500; }
+          .sep { margin-right: 8px; color: ${this._getConf('sep_color', 'global_colors') || 'inherit'} !important; }
+          .finished { animation: blink 1s linear infinite; }
         </style>
-        <ha-card>
+        <ha-card id="card-container">
           <div class="header">
             <ha-icon class="icon" icon="${icon}"></ha-icon>
-            <div class="name">${this.config.name || stateObj.attributes.friendly_name}</div>
+            <div class="name">${this._getConf('name', 'header_settings') || stateObj.attributes.friendly_name}</div>
           </div>
-          <div class="timer">${formattedDisplay}</div>
+          <div class="timer" id="timer-display"></div>
         </ha-card>
       `;
+    }
+
+    _updateTimer(stateObj) {
+      const timerEl = this.shadowRoot.getElementById('timer-display');
+      const cardEl = this.shadowRoot.getElementById('card-container');
+      if (!timerEl) return;
+
+      const isFinished = stateObj.attributes.is_finished || false;
+      let displayStr = isFinished ? (this._getConf('finished_text', 'timer_settings') || "Finished") : stateObj.state;
+
+      if (!isFinished) {
+        if (this._getConf('short_form', 'timer_settings')) {
+          displayStr = displayStr
+            .replace(/\byears?\b/gi, 'y').replace(/\bmonths?\b/gi, 'm')
+            .replace(/\bdays?\b/gi, 'd').replace(/\bhours?\b/gi, 'h')
+            .replace(/\bminutes?\b/gi, 'min').replace(/\bseconds?\b/gi, 's');
+        }
+        if (this._getConf('hide_seconds', 'timer_settings')) {
+          displayStr = displayStr.replace(/,?\s*\d+\s*(second[s]?|s)\b/gi, '');
+        }
+        timerEl.innerHTML = this._colorizeUnits(displayStr);
+        cardEl.classList.remove('finished');
+      } else {
+        timerEl.innerText = displayStr;
+        if (this._getConf('flash_finished', 'timer_settings')) cardEl.classList.add('finished');
+      }
     }
 
     _colorizeUnits(str) {
       const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
       let output = str;
+      const nGlob = this._getConf('n_color', 'global_colors') || 'var(--primary-text-color)';
+      const lGlob = this._getConf('l_color', 'global_colors') || 'var(--secondary-text-color)';
+
       units.forEach(u => {
         const regex = new RegExp(`(\\d+)\\s*(${u.r.source})\\b\\s*([,:]?)`, 'gi');
         output = output.replace(regex, (match, p1, p2, p3) => {
-          const nColor = this.config[`${u.k}_n_color`] || this.config.n_color;
-          const lColor = this.config[`${u.k}_l_color`] || this.config.l_color;
+          const nColor = this._getConf(`${u.k}_n_color`, 'unit_overrides') || nGlob;
+          const lColor = this._getConf(`${u.k}_l_color`, 'unit_overrides') || lGlob;
           return `<span style="color: ${nColor} !important; font-weight: 700; margin-right: 4px;">${p1}</span>` +
                  `<span style="color: ${lColor} !important; font-weight: 400;">${p2}</span>` +
-                 `<span class="sep">${p3 || ''}</span>`;
+                 `<span class="sep" style="color:${this._getConf('sep_color', 'global_colors') || nGlob}">${p3 || ''}</span>`;
         });
       });
       return output;
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
+    static getStubConfig() { 
+      return { 
+        entity: "", 
+        header_settings: { show_header: true, title_size: 1 },
+        timer_settings: { font_size: 1.2 }
+      }; 
+    }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) {
       this._config = config;
-      if (this._form) {
-        // Update data without rebuilding the form
+      if (this._form && !this._isTyping) {
         this._form.data = this._config;
-      } else {
+      } else if (!this._form) {
         this._render();
       }
     }
     
-    set hass(hass) { 
-      this._hass = hass; 
-      if (this._form) this._form.hass = hass; 
-    }
+    set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 
     _render() {
       const schema = [
@@ -180,23 +197,13 @@
       this._form.schema = schema;
       this._form.computeLabel = (s) => s.label || s.name;
       
+      this._form.addEventListener("focusin", () => { this._isTyping = true; });
+      this._form.addEventListener("focusout", () => { this._isTyping = false; });
+
       this._form.addEventListener("value-changed", (ev) => {
-        ev.stopPropagation(); // Stop event from bubbling and triggering a double update
-        const rawData = ev.detail.value;
-        const flattened = { ...rawData };
-
-        // Pull nested expandable values to the root
-        Object.keys(rawData).forEach(key => {
-          if (typeof rawData[key] === 'object' && rawData[key] !== null && !Array.isArray(rawData[key])) {
-            Object.assign(flattened, rawData[key]);
-            delete flattened[key];
-          }
-        });
-
-        const mergedConfig = { ...this._config, ...flattened, type: "custom:long-form-countdown-card" };
-        
+        ev.stopPropagation();
         this.dispatchEvent(new CustomEvent("config-changed", { 
-          detail: { config: mergedConfig }, 
+          detail: { config: ev.detail.value }, 
           bubbles: true, 
           composed: true 
         }));
