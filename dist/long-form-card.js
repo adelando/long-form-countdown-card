@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Fixed nesting logic for header and unit overrides.",
+      description: "Flattened logic to ensure visual editor settings map correctly.",
       preview: true
     });
   }
@@ -89,10 +89,7 @@
     }
 
     _colorizeUnits(str) {
-      const units = [
-        {k:'y', r:/years?|y/i}, {k:'m', r:/months?|m/i}, {k:'d', r:/days?|d/i}, 
-        {k:'h', r:/hours?|h/i}, {k:'min', r:/minutes?|min/i}, {k:'s', r:/seconds?|s/i}
-      ];
+      const units = [{k:'y',r:/years?|y/i},{k:'m',r:/months?|m/i},{k:'d',r:/days?|d/i},{k:'h',r:/hours?|h/i},{k:'min',r:/minutes?|min/i},{k:'s',r:/seconds?|s/i}];
       let output = str;
       units.forEach(u => {
         const regex = new RegExp(`(\\d+)\\s*(${u.r.source})\\b\\s*([,:]?)`, 'gi');
@@ -121,21 +118,21 @@
       const schema = [
         { name: "entity", selector: { entity: { filter: [{ integration: "long_form_word_countdown" }] } } },
         {
-          name: "Header Settings", type: "expandable", schema: [
+          name: "header_settings", label: "Header Settings", type: "expandable", schema: [
             { name: "show_header", label: "Show Header", selector: { boolean: {} } },
             { name: "name", label: "Title Override", selector: { text: {} } },
             { name: "icon", selector: { icon: {} } },
             { type: "grid", name: "", schema: [
-              { name: "title_color", label: "Title Color (Hex)", selector: { text: {} } },
-              { name: "icon_color", label: "Icon Color (Hex)", selector: { text: {} } },
+              { name: "title_color", label: "Title Color", selector: { text: {} } },
+              { name: "icon_color", label: "Icon Color", selector: { text: {} } },
               { name: "title_size", label: "Header Scale", selector: { number: { min: 0.5, max: 3, step: 0.1, mode: "slider" } } },
             ]},
           ]
         },
         {
-          name: "Timer Settings", type: "expandable", schema: [
+          name: "timer_settings", label: "Timer Settings", type: "expandable", schema: [
             { type: "grid", name: "", schema: [
-              { name: "bg_color", label: "Background (Hex)", selector: { text: {} } },
+              { name: "bg_color", label: "Background Hex", selector: { text: {} } },
               { name: "font_size", label: "Timer Font Size", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
             ]},
             { type: "grid", name: "", schema: [
@@ -147,14 +144,14 @@
           ]
         },
         {
-          name: "Global Colors", type: "expandable", schema: [
+          name: "global_colors", label: "Global Colors", type: "expandable", schema: [
             { name: "n_color", label: "Global Number Color", selector: { text: {} } },
             { name: "l_color", label: "Global Word Color", selector: { text: {} } },
             { name: "sep_color", label: "Separator Color", selector: { text: {} } },
           ]
         },
         {
-          name: "Individual Unit Overrides", type: "expandable", schema: [
+          name: "unit_overrides", label: "Individual Unit Overrides", type: "expandable", schema: [
             { type: "grid", name: "", schema: [
               { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
               { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
@@ -175,9 +172,18 @@
       this._form.computeLabel = (s) => s.label || s.name;
       
       this._form.addEventListener("value-changed", (ev) => {
-        // FLAT DATA LOGIC: Extract and merge everything into the root config
-        const newConfig = ev.detail.value;
-        const mergedConfig = { ...this._config, ...newConfig, type: "custom:long-form-countdown-card" };
+        const rawData = ev.detail.value;
+        const flattened = { ...rawData };
+
+        // RECURSIVE FLATTEN: Check all keys for nested objects and move them to root
+        Object.keys(rawData).forEach(key => {
+          if (typeof rawData[key] === 'object' && rawData[key] !== null && !Array.isArray(rawData[key])) {
+            Object.assign(flattened, rawData[key]);
+            delete flattened[key]; // Remove the nested parent key
+          }
+        });
+
+        const mergedConfig = { ...this._config, ...flattened, type: "custom:long-form-countdown-card" };
         
         this.dispatchEvent(new CustomEvent("config-changed", { 
           detail: { config: mergedConfig }, 
