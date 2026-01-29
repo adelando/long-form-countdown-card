@@ -4,7 +4,7 @@
     window.customCards.push({
       type: "long-form-countdown-card",
       name: "Long Form Countdown Card",
-      description: "Reactive UI with categorized settings and individual unit control.",
+      description: "Fixed nesting logic for header and unit overrides.",
       preview: true
     });
   }
@@ -17,7 +17,6 @@
 
     setConfig(config) {
       if (!config.entity) throw new Error("Please define an entity");
-      // Default configurations
       this.config = {
         show_header: true,
         title_size: 1,
@@ -31,7 +30,6 @@
     }
 
     set hass(hass) {
-      this._hass = hass;
       const stateObj = hass.states[this.config.entity];
       if (!stateObj) return;
 
@@ -50,10 +48,6 @@
         }
       }
 
-      this._render(displayStr, isFinished, stateObj);
-    }
-
-    _render(displayStr, isFinished, stateObj) {
       const formattedDisplay = isFinished ? displayStr : this._colorizeUnits(displayStr);
       const icon = this.config.icon || stateObj.attributes.icon || 'mdi:clock-outline';
       
@@ -81,11 +75,7 @@
             color: ${this.config.title_color || 'inherit'} !important; 
             font-weight: 500; 
           }
-          .timer { 
-            font-size: ${this.config.font_size}rem; 
-            line-height: 1.6; 
-            font-weight: 500; 
-          }
+          .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
           .sep { margin-right: 8px; color: ${this.config.sep_color} !important; }
         </style>
         <ha-card>
@@ -122,10 +112,7 @@
   }
 
   class LongFormCountdownEditor extends HTMLElement {
-    setConfig(config) {
-      this._config = config;
-      this._render();
-    }
+    setConfig(config) { this._config = config; this._render(); }
     set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 
     _render() {
@@ -186,10 +173,19 @@
       this._form.data = this._config;
       this._form.schema = schema;
       this._form.computeLabel = (s) => s.label || s.name;
+      
       this._form.addEventListener("value-changed", (ev) => {
-        const config = { ...ev.detail.value, type: "custom:long-form-countdown-card" };
-        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
+        // FLAT DATA LOGIC: Extract and merge everything into the root config
+        const newConfig = ev.detail.value;
+        const mergedConfig = { ...this._config, ...newConfig, type: "custom:long-form-countdown-card" };
+        
+        this.dispatchEvent(new CustomEvent("config-changed", { 
+          detail: { config: mergedConfig }, 
+          bubbles: true, 
+          composed: true 
+        }));
       });
+
       this.querySelector("div").appendChild(this._form);
       this._rendered = true;
     }
