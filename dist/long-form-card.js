@@ -1,5 +1,4 @@
 (function() {
-  // 1. THE CARD DISPLAY LOGIC
   class LongFormCountdownCard extends HTMLElement {
     constructor() {
       super();
@@ -32,7 +31,7 @@
           .val { font-weight: 700; }
           .lbl { font-weight: 400; margin-left: 2px; }
           .sep { color: ${this.config.sep_color || 'inherit'}; margin-right: 6px; }
-          /* Color Overrides */
+          /* Overrides */
           .y-v { color: ${this.config.y_n_color || this.config.n_color || 'inherit'}; } .y-l { color: ${this.config.y_l_color || this.config.l_color || 'inherit'}; }
           .m-v { color: ${this.config.m_n_color || this.config.n_color || 'inherit'}; } .m-l { color: ${this.config.m_l_color || this.config.l_color || 'inherit'}; }
           .d-v { color: ${this.config.d_n_color || this.config.n_color || 'inherit'}; } .d-l { color: ${this.config.d_l_color || this.config.l_color || 'inherit'}; }
@@ -68,7 +67,6 @@
     static getStubConfig() { return { entity: "", font_size: 1.2 }; }
   }
 
-  // 2. THE VISUAL EDITOR LOGIC
   class LongFormCountdownEditor extends HTMLElement {
     setConfig(config) {
       this._config = config;
@@ -90,9 +88,9 @@
           type: "grid",
           name: "",
           schema: [
-            { name: "bg_color", label: "Background", selector: { text: {} } },
+            { name: "bg_color", label: "Background Color", selector: { text: {} } },
             { name: "title_color", label: "Title Color", selector: { text: {} } },
-            { name: "font_size", label: "Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
+            { name: "font_size", label: "Font Size (rem)", selector: { number: { min: 0.5, max: 4, step: 0.1, mode: "slider" } } },
             { name: "hide_seconds", label: "Hide Seconds", selector: { boolean: {} } },
           ],
         },
@@ -115,9 +113,18 @@
       form.computeLabel = (s) => s.label || s.name;
 
       form.addEventListener("value-changed", (ev) => {
-        const config = ev.detail.value;
+        // THE FIX: Merge the new values into the existing config
+        // And manually ensure 'type' is preserved.
+        const newConfig = { 
+          ...this._config, 
+          ...ev.detail.value 
+        };
+        
+        // Ensure the card type doesn't get lost during entity selection
+        newConfig.type = "custom:long-form-countdown-card";
+
         const event = new CustomEvent("config-changed", {
-          detail: { config },
+          detail: { config: newConfig },
           bubbles: true,
           composed: true,
         });
@@ -129,11 +136,9 @@
     }
   }
 
-  // 3. REGISTER ELEMENTS
   customElements.define("long-form-countdown-card", LongFormCountdownCard);
   customElements.define("long-form-countdown-editor", LongFormCountdownEditor);
 
-  // 4. ADD TO UI SELECTOR
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "long-form-countdown-card",
