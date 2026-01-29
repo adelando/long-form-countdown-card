@@ -1,4 +1,15 @@
 (function() {
+  // 1. Register for UI Selector immediately
+  window.customCards = window.customCards || [];
+  if (!window.customCards.find(c => c.type === 'long-form-countdown-card')) {
+    window.customCards.push({
+      type: "long-form-countdown-card",
+      name: "Long Form Countdown Card",
+      description: "Customizable countdown with deep theme override support.",
+      preview: true
+    });
+  }
+
   class LongFormCountdownCard extends HTMLElement {
     constructor() {
       super();
@@ -10,10 +21,10 @@
       this.config = {
         font_size: 1.2,
         title_size: 1,
-        n_color: '#ffffff',
-        l_color: '#aaaaaa',
-        sep_color: '#ffffff',
         show_header: true,
+        n_color: 'var(--primary-text-color)',
+        l_color: 'var(--secondary-text-color)',
+        sep_color: 'var(--primary-text-color)',
         ...config
       };
     }
@@ -43,11 +54,11 @@
         <style>
           @keyframes blink { 50% { opacity: 0; } }
           :host {
-            --n-clr: ${this.config.n_color};
-            --l-clr: ${this.config.l_color};
-            --s-clr: ${this.config.sep_color};
+            --n-clr: ${this.config.n_color || 'inherit'};
+            --l-clr: ${this.config.l_color || 'inherit'};
+            --s-clr: ${this.config.sep_color || 'inherit'};
             
-            /* Individual Overrides - Mapping logic fix */
+            /* Individual Overrides */
             --y-n: ${this.config.y_n_color || 'var(--n-clr)'}; --y-l: ${this.config.y_l_color || 'var(--l-clr)'};
             --m-n: ${this.config.m_n_color || 'var(--n-clr)'}; --m-l: ${this.config.m_l_color || 'var(--l-clr)'};
             --d-n: ${this.config.d_n_color || 'var(--n-clr)'}; --d-l: ${this.config.d_l_color || 'var(--l-clr)'};
@@ -110,7 +121,6 @@
     }
 
     static getConfigElement() { return document.createElement("long-form-countdown-editor"); }
-    static getStubConfig() { return { type: "custom:long-form-countdown-card", entity: "", font_size: 1.2, show_header: true, title_size: 1 }; }
   }
 
   class LongFormCountdownEditor extends HTMLElement {
@@ -144,12 +154,10 @@
           { name: "flash_finished", label: "Flash on Done", selector: { boolean: {} } },
         ]},
         { name: "finished_text", label: "Finished Display Text", selector: { text: {} } },
-        { name: "Global Colors", type: "expandable", schema: [
-          { name: "n_color", label: "Global Number Color", selector: { text: {} } },
-          { name: "l_color", label: "Global Word Color", selector: { text: {} } },
-          { name: "sep_color", label: "Separator Color", selector: { text: {} } },
-        ]},
-        { name: "Individual Unit Overrides", type: "expandable", schema: [
+        { name: "n_color", label: "Global Number Color", selector: { text: {} } },
+        { name: "l_color", label: "Global Word Color", selector: { text: {} } },
+        { name: "sep_color", label: "Separator Color", selector: { text: {} } },
+        { name: "Individual Overrides", type: "expandable", schema: [
           { type: "grid", name: "", schema: [
             { name: "y_n_color", label: "Year Num", selector: { text: {} } }, { name: "y_l_color", label: "Year Word", selector: { text: {} } },
             { name: "m_n_color", label: "Month Num", selector: { text: {} } }, { name: "m_l_color", label: "Month Word", selector: { text: {} } },
@@ -168,7 +176,7 @@
       this._form.schema = schema;
       this._form.computeLabel = (s) => s.label || s.name;
       this._form.addEventListener("value-changed", (ev) => {
-        const config = { ...ev.detail.value, type: "custom:long-form-countdown-card" };
+        const config = { ...this._config, ...ev.detail.value, type: "custom:long-form-countdown-card" };
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
       });
       this.querySelector("div").appendChild(this._form);
