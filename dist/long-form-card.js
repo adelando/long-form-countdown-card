@@ -7,12 +7,12 @@ class LongFormCountdownCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) throw new Error("Please define an entity");
     this.config = {
+      name: '',
       title_color: 'var(--secondary-text-color)',
       bg_color: 'var(--ha-card-background, var(--card-background-color, white))',
       font_size: '1.2',
       hide_seconds: false,
       icon: '',
-      // Default globals
       n_color: 'var(--primary-color)', 
       l_color: 'var(--primary-color)',
       ...config
@@ -32,17 +32,14 @@ class LongFormCountdownCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        ha-card { padding: 16px; background: ${this.config.bg_color}; border-radius: var(--ha-card-border-radius, 12px); position: relative; }
+        ha-card { padding: 16px; background: ${this.config.bg_color}; border-radius: var(--ha-card-border-radius, 12px); }
         .header { display: flex; align-items: center; margin-bottom: 8px; }
-        .icon { margin-right: 8px; color: ${this.config.title_color}; --mdc-icon-size: 24px; }
+        .icon { margin-right: 12px; color: ${this.config.title_color}; --mdc-icon-size: 24px; }
         .name { font-size: 0.9rem; color: ${this.config.title_color}; font-weight: 500; }
-        .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; word-wrap: break-word; }
-        
-        /* Unit Styling */
+        .timer { font-size: ${this.config.font_size}rem; line-height: 1.6; font-weight: 500; }
         .val { font-weight: 700; }
-        .lbl { font-weight: 400; margin-right: 4px; }
-
-        /* Color Overrides */
+        .lbl { font-weight: 400; margin-right: 6px; margin-left: 2px; }
+        /* Unit Overrides */
         .y-v { color: ${this.config.y_n_color || this.config.n_color}; } .y-l { color: ${this.config.y_l_color || this.config.l_color}; }
         .m-v { color: ${this.config.m_n_color || this.config.n_color}; } .m-l { color: ${this.config.m_l_color || this.config.l_color}; }
         .d-v { color: ${this.config.d_n_color || this.config.n_color}; } .d-l { color: ${this.config.d_l_color || this.config.l_color}; }
@@ -72,8 +69,9 @@ class LongFormCountdownCard extends HTMLElement {
 
     let output = str;
     units.forEach(u => {
+      // The $1 $2 ensures a space is maintained between number and word
       output = output.replace(new RegExp(`(\\d+)\\s*(${u.regex.source})`, 'gi'), 
-        `<span class="${u.key}-v val">$1</span><span class="${u.key}-l lbl">$2</span>`);
+        `<span class="${u.key}-v val">$1</span> <span class="${u.key}-l lbl">$2</span>`);
     });
     return output;
   }
@@ -83,28 +81,40 @@ class LongFormCountdownCard extends HTMLElement {
 
 // --- VISUAL EDITOR ---
 class LongFormCountdownEditor extends HTMLElement {
-  setConfig(config) { this._config = config || {}; }
-  set hass(hass) { this._hass = hass; this._render(); }
+  setConfig(config) {
+    this._config = config || {};
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
 
   _render() {
-    if (this._rendered || !this._config) return;
+    if (this._rendered) return;
     this.innerHTML = `
       <style>
-        .option-row { padding: 8px 0; border-bottom: 1px solid var(--divider-color); }
-        details { margin-top: 10px; border: 1px solid var(--divider-color); border-radius: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 0; }
+        details { border: 1px solid var(--divider-color); margin-top: 10px; border-radius: 4px; }
         summary { cursor: pointer; padding: 10px; background: var(--secondary-background-color); font-weight: bold; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
       </style>
-      <div class="editor-container">
-        <ha-entity-picker label="Entity (lfwc_...)" .hass=${this._hass} .value=${this._config.entity} .includeDomains=${['sensor']} @value-changed=${(ev) => this._changed(ev, 'entity')}></ha-entity-picker>
-        
+      <div>
+        <ha-entity-picker 
+          .hass=${this._hass} 
+          .value=${this._config.entity} 
+          .includeDomains=${['sensor']}
+          .entityFilter=${(stateObj) => stateObj.entity_id.startsWith('sensor.lfwc_')}
+          allow-custom-entity
+          @value-changed=${(ev) => this._changed(ev, 'entity')}>
+        </ha-entity-picker>
+
         <div class="grid">
-          <ha-icon-picker label="Icon" .hass=${this._hass} .value=${this._config.icon} @value-changed=${(ev) => this._changed(ev, 'icon')}></ha-icon-picker>
-          <ha-textfield label="Font Size (rem)" type="number" .value=${this._config.font_size} @input=${(ev) => this._changed(ev, 'font_size')}></ha-textfield>
+          <ha-icon-picker .hass=${this._hass} .value=${this._config.icon} @value-changed=${(ev) => this._changed(ev, 'icon')}></ha-icon-picker>
+          <ha-textfield label="Title Override" .value=${this._config.name || ''} @input=${(ev) => this._changed(ev, 'name')}></ha-textfield>
         </div>
 
         <div class="grid">
-          <ha-textfield label="Card BG Color" .value=${this._config.bg_color} @input=${(ev) => this._changed(ev, 'bg_color')}></ha-textfield>
+          <ha-textfield label="Card BG" .value=${this._config.bg_color} @input=${(ev) => this._changed(ev, 'bg_color')}></ha-textfield>
           <ha-textfield label="Title Color" .value=${this._config.title_color} @input=${(ev) => this._changed(ev, 'title_color')}></ha-textfield>
         </div>
 
@@ -113,28 +123,20 @@ class LongFormCountdownEditor extends HTMLElement {
         </ha-formfield>
 
         <details>
-          <summary>Global Text Colors</summary>
+          <summary>Global Colors</summary>
           <div class="grid">
-            <ha-textfield label="All Numbers" .value=${this._config.n_color} @input=${(ev) => this._changed(ev, 'n_color')}></ha-textfield>
-            <ha-textfield label="All Words" .value=${this._config.l_color} @input=${(ev) => this._changed(ev, 'l_color')}></ha-textfield>
+            <ha-textfield label="Global Number Color" .value=${this._config.n_color} @input=${(ev) => this._changed(ev, 'n_color')}></ha-textfield>
+            <ha-textfield label="Global Word Color" .value=${this._config.l_color} @input=${(ev) => this._changed(ev, 'l_color')}></ha-textfield>
           </div>
         </details>
 
         <details>
-          <summary>Specific Unit Colors (Overrides)</summary>
+          <summary>Specific Overrides (Y, M, D, H, M, S)</summary>
           <div class="grid">
             <ha-textfield label="Year Num" .value=${this._config.y_n_color || ''} @input=${(ev) => this._changed(ev, 'y_n_color')}></ha-textfield>
             <ha-textfield label="Year Word" .value=${this._config.y_l_color || ''} @input=${(ev) => this._changed(ev, 'y_l_color')}></ha-textfield>
-            <ha-textfield label="Month Num" .value=${this._config.m_n_color || ''} @input=${(ev) => this._changed(ev, 'm_n_color')}></ha-textfield>
-            <ha-textfield label="Month Word" .value=${this._config.m_l_color || ''} @input=${(ev) => this._changed(ev, 'm_l_color')}></ha-textfield>
             <ha-textfield label="Day Num" .value=${this._config.d_n_color || ''} @input=${(ev) => this._changed(ev, 'd_n_color')}></ha-textfield>
             <ha-textfield label="Day Word" .value=${this._config.d_l_color || ''} @input=${(ev) => this._changed(ev, 'd_l_color')}></ha-textfield>
-            <ha-textfield label="Hour Num" .value=${this._config.h_n_color || ''} @input=${(ev) => this._changed(ev, 'h_n_color')}></ha-textfield>
-            <ha-textfield label="Hour Word" .value=${this._config.h_l_color || ''} @input=${(ev) => this._changed(ev, 'h_l_color')}></ha-textfield>
-            <ha-textfield label="Min Num" .value=${this._config.min_n_color || ''} @input=${(ev) => this._changed(ev, 'min_n_color')}></ha-textfield>
-            <ha-textfield label="Min Word" .value=${this._config.min_l_color || ''} @input=${(ev) => this._changed(ev, 'min_l_color')}></ha-textfield>
-            <ha-textfield label="Sec Num" .value=${this._config.s_n_color || ''} @input=${(ev) => this._changed(ev, 's_n_color')}></ha-textfield>
-            <ha-textfield label="Sec Word" .value=${this._config.s_l_color || ''} @input=${(ev) => this._changed(ev, 's_l_color')}></ha-textfield>
           </div>
         </details>
       </div>
@@ -144,8 +146,10 @@ class LongFormCountdownEditor extends HTMLElement {
 
   _changed(ev, field, isBool = false) {
     const val = isBool ? ev.target.checked : (ev.detail?.value || ev.target.value);
-    const newConfig = { ...this._config, [field]: val };
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: newConfig }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: { ...this._config, [field]: val } },
+      bubbles: true, composed: true
+    }));
   }
 }
 
@@ -153,4 +157,9 @@ customElements.define("long-form-countdown-card", LongFormCountdownCard);
 customElements.define("long-form-countdown-editor", LongFormCountdownEditor);
 
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "long-form-countdown-card", name: "Long Form Countdown Card", preview: true });
+window.customCards.push({
+  type: "long-form-countdown-card",
+  name: "Long Form Countdown Card",
+  description: "A highly customizable card for displaying long-form countdown sensors (lfwc_).",
+  preview: true
+});
